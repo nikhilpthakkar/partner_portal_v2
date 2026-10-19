@@ -1,0 +1,13 @@
+---
+description: Accessibility rules for AI-driven UI
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# AI Accessibility
+
+- Use semantic regions for AI message lists (`role="log"`, `aria-live="polite"`)
+- Do not steal focus during streaming updates
+- Ensure all actions are keyboard accessible
+- Provide accessible labels for AI actions and controls
+- Add alt text or labels for AI-generated media
+- Do not rely on color alone to convey AI vs user content

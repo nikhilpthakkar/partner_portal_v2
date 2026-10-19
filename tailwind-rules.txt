@@ -1,0 +1,187 @@
+TAILWIND CSS v4 — @theme AUTO-GENERATED UTILITY RULES
+
+RULE 1 — COLORS
+@theme tokens:
+--color-*
+
+Auto utilities:
+text-*            → color
+bg-*              → background-color
+border-*          → border-color
+outline-*         → outline-color
+ring-*            → --tw-ring-color
+divide-*          → divide-color
+fill-*            → fill
+stroke-*          → stroke
+accent-*          → accent-color
+caret-*           → caret-color
+decoration-*      → text-decoration-color
+
+--------------------------------------------
+
+RULE 2 — BORDER RADIUS
+@theme tokens:
+--radius-*
+
+Auto utilities:
+rounded-*         → border-radius
+rounded-t-*       → border-top-left/right-radius
+rounded-r-*       → border-top/bottom-right-radius
+rounded-b-*       → border-bottom-left/right-radius
+rounded-l-*       → border-top/bottom-left-radius
+rounded-tl-*      → border-top-left-radius
+rounded-tr-*      → border-top-right-radius
+rounded-br-*      → border-bottom-right-radius
+rounded-bl-*      → border-bottom-left-radius
+
+--------------------------------------------
+
+RULE 3 — SHADOWS
+@theme tokens:
+--shadow-*
+
+Auto utilities:
+shadow-*          → box-shadow
+shadow-inset-*    → inset box-shadow
+
+--------------------------------------------
+
+RULE 4 — SPACING
+@theme tokens:
+--spacing-*
+
+Auto utilities:
+p-*   px-*  py-*  pt-*  pr-*  pb-*  pl-*
+m-*   mx-*  my-*  mt-*  mr-*  mb-*  ml-*
+gap-* row-gap-* column-gap-*
+space-x-* space-y-*
+
+--------------------------------------------
+
+RULE 5 — SIZE
+@theme tokens:
+--spacing-*
+
+Auto utilities:
+w-*        → width
+min-w-*    → min-width
+max-w-*    → max-width
+h-*        → height
+min-h-*    → min-height
+max-h-*    → max-height
+
+--------------------------------------------
+
+RULE 6 — TYPOGRAPHY (FONT SIZE)
+@theme tokens:
+--text-*
+
+Auto utilities:
+text-*     → font-size
+
+--------------------------------------------
+
+RULE 7 — FONT WEIGHT
+@theme tokens:
+--font-weight-*
+
+Auto utilities:
+font-*     → font-weight
+
+--------------------------------------------
+
+RULE 8 — LINE HEIGHT
+@theme tokens:
+--leading-*
+
+Auto utilities:
+leading-*  → line-height
+
+--------------------------------------------
+
+RULE 9 — LETTER SPACING
+@theme tokens:
+--tracking-*
+
+Auto utilities:
+tracking-* → letter-spacing
+
+--------------------------------------------
+
+RULE 10 — Z-INDEX
+@theme tokens:
+--z-*
+
+Auto utilities:
+z-*        → z-index
+
+--------------------------------------------
+
+RULE 11 — OPACITY
+@theme tokens:
+--opacity-*
+
+Auto utilities:
+opacity-*  → opacity
+
+--------------------------------------------
+
+RULE 12 — BORDER WIDTH
+@theme tokens:
+--border-*
+
+Auto utilities:
+border-*   → border-width
+
+--------------------------------------------
+
+RULE 13 — RING WIDTH
+@theme tokens:
+--ring-*
+
+Auto utilities:
+ring-*     → --tw-ring-width
+
+--------------------------------------------
+
+RULE 14 — BLUR
+@theme tokens:
+--blur-*
+
+Auto utilities:
+blur-*     → filter: blur()
+
+--------------------------------------------
+
+RULE 15 — DROP SHADOW
+@theme tokens:
+--drop-shadow-*
+
+Auto utilities:
+drop-shadow-* → filter: drop-shadow()
+
+--------------------------------------------
+
+RULE 16 — TRANSITION DURATION
+@theme tokens:
+--duration-*
+
+Auto utilities:
+duration-* → transition-duration
+
+--------------------------------------------
+
+RULE 17 — TRANSITION TIMING
+@theme tokens:
+--ease-*
+
+Auto utilities:
+ease-*     → transition-timing-function
+
+--------------------------------------------
+
+GOLDEN RULE (DO NOT BREAK):
+If a utility can be derived from @theme using the patterns above,
+DO NOT create a custom class for it.
+
+Use the utility directly.

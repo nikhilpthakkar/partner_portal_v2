@@ -1,0 +1,13 @@
+---
+description: AI observability and testing expectations
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# AI Observability and Testing
+
+- Log prompt/response metadata (no PII) with request ids
+- Track latency, error rate, and token usage
+- Surface user-visible errors and provide retry
+- Unit test AI UI flows with mocked responses
+- Add E2E tests for chat flows and error states
+- Add accessibility checks for dynamic AI content

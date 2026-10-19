@@ -1,0 +1,21 @@
+---
+description: React component standards for src
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# React Components
+
+- Use functional components and TypeScript props
+- Components are presentational: no data fetching or stores
+- Components must be reusable and composable
+- No static UI or hardcoded data
+- Pass data via props only
+- Prefer React Server Components; add `"use client"` only when needed
+- Follow levels: `atoms` -> `molecules` -> `organisms` -> `templates`
+- For AI-driven UIs, require user review before applying changes
+- Use accessible live regions for streaming updates (e.g. `role="log"`, `aria-live`)
+- Keep keyboard focus stable; move focus only for errors
+
+## File Naming
+- `.tsx` component files use `PascalCase`
+- Hooks use `camelCase` starting with `use`

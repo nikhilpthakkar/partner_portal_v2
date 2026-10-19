@@ -1,0 +1,127 @@
+---
+description: Tailwind v4 and styling standards for src
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# Styling and Tokens
+
+- Tailwind-first; avoid inline styles
+- Use shadcn/ui components when possible; if unavailable, use Radix UI or create under atoms
+- Do not reimplement basic controls (button, input, table)
+- SCSS only when necessary; SCSS lives in `/styles`
+- No hardcoded px/hex/rgba in components
+- Prefer theme token utilities (Tailwind v4)
+- Do not rely on color alone to convey AI vs user output
+- Keep focus styles visible and contrast accessible
+
+## Charts
+- Use shadcn charts or ECharts only
+- Charts must be responsive
+- Avoid unnecessary re-renders
+
+## Tailwind v4 Rule
+- Do not create custom classes that map 1:1 to a single `@theme` token
+- If a utility can be derived from `@theme`, use it directly
+
+### Auto-generated mappings (non-exhaustive but authoritative)
+
+COLORS:
+
+- --color-_ →
+  text-_
+  bg-_
+  border-_
+  outline-_
+  ring-_
+  divide-_
+  fill-_
+  stroke-_
+  accent-_
+  caret-_
+  decoration-_
+
+BORDER RADIUS:
+
+- --radius-_ →
+  rounded-_
+  rounded-t-_ rounded-r-_ rounded-b-_ rounded-l-_
+  rounded-tl-_ rounded-tr-_ rounded-br-_ rounded-bl-_
+
+SHADOWS:
+
+- --shadow-_ →
+  shadow-_
+  shadow-inset-*
+
+SPACING:
+
+- --spacing-_ →
+  p-_ px-_ py-_ pt-_ pr-_ pb-_ pl-_
+  m-_ mx-_ my-_ mt-_ mr-_ mb-_ ml-_
+  gap-_ row-gap-_ column-gap-_
+  space-x-_ space-y-_
+
+SIZE:
+
+- --spacing-_ →
+  w-_ min-w-_ max-w-_
+  h-_ min-h-_ max-h-*
+
+TYPOGRAPHY:
+
+- --text-_ → text-_ (font-size)
+  --font-weight-_ → font-_
+  --leading-_ → leading-_
+  --tracking-_ → tracking-_
+
+Z-INDEX:
+
+- --z-_ → z-_
+
+OPACITY:
+
+- --opacity-_ → opacity-_
+
+BORDERS:
+
+- --border-_ → border-_ (border-width)
+
+RINGS:
+
+- --ring-_ → ring-_ (ring-width)
+
+FILTERS:
+
+- --blur-_ → blur-_
+  --drop-shadow-_ → drop-shadow-_
+
+TRANSITIONS:
+
+- --duration-_ → duration-_
+  --ease-_ → ease-_
+
+### Strict prohibitions
+
+- Do NOT create utilities like:
+  .text-foo { color: var(--color-foo); }
+  .bg-bar { background-color: var(--color-bar); }
+  .rounded-baz { border-radius: var(--radius-baz); }
+  .shadow-x { box-shadow: var(--shadow-x); }
+
+### Allowed custom utilities only when
+
+- Multiple CSS properties are involved
+- State logic is required (:hover, :focus, data-*)
+- Child selectors are required
+- Component or behavior semantics cannot be expressed by a single Tailwind utility
+
+If there is ANY uncertainty whether Tailwind v4 already provides a utility,
+DO NOT add custom CSS.
+
+### Token Rules
+
+- Colors → --color-*
+- Spacing → --spacing-*
+- Shadows → --shadow-*
+- No hardcoded px, hex, or rgba in components
+- Hex is allowed only inside @theme

@@ -1,0 +1,9 @@
+packages:
+  - .
+
+# pnpm v11: allow install scripts for these deps (required in Docker/CI; no interactive `pnpm approve-builds`).
+allowBuilds:
+  '@parcel/watcher': true
+  msw: true
+  sharp: true
+  unrs-resolver: true

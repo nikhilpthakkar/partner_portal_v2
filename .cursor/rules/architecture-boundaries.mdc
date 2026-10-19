@@ -1,0 +1,23 @@
+---
+description: Enforce feature architecture boundaries in src
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# Architecture Boundaries
+
+- Follow existing structure only; common folders include `src/app`, `src/components`, `src/features`, `src/hooks`, `src/lib`, `src/styles`, `src/utils`
+- Keep dependency direction: `app` -> `features` -> `components` + `lib`
+- `features` may use `lib`, but `lib` must never import from `features`
+- Routes only under `src/app`; no route logic elsewhere
+- Follow App Router conventions
+- Feature orchestration stays in `src/features`, not components
+- Reusable UI belongs in `src/components` at the correct level
+- Normalize API payloads in `src/lib/adapter`, not in UI
+- AI/LLM integrations stay server-side under `src/app/api`
+
+## Placement Shortcuts
+- API calls: `src/lib/services/**`
+- Query hooks: `src/lib/query/**`
+- Client state (Zustand): `src/lib/store/**`
+- Shared types: `src/lib/types/**`
+- AI route handlers: `src/app/api/**`

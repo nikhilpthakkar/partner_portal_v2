@@ -1,0 +1,21 @@
+---
+description: Data access and state rules for src
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# Data and State
+
+- Server data uses React Query hooks in `src/lib/query`
+- Client UI state uses Zustand in `src/lib/store`
+- No `fetch`/`axios` directly inside components
+- API calls live in `src/lib/services`
+- Transform API data in `src/lib/adapter` before UI use
+- Keep shared types in `src/lib/types`
+- Features orchestrate data and consume components
+- Strip or redact PII before sending prompts to AI services
+- Never expose model keys or secrets to the client
+
+## Feature File Conventions
+- `*.api.ts` → API calls
+- `*.queries.ts` → TanStack Query hooks
+- `*.store.ts` → Zustand (feature-scoped)

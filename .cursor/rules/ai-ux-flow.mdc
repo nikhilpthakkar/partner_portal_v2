@@ -1,0 +1,13 @@
+---
+description: AI UX flow and human review rules
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# AI UX Flow
+
+- AI suggestions must be reviewed before applying changes
+- Present AI output as preview or diff, not auto-apply
+- Provide undo or revert for accepted changes
+- Disable inputs during in-flight requests
+- Allow cancellation for streaming responses
+- Debounce high-frequency AI triggers (typeahead, autocomplete)

@@ -1,0 +1,24 @@
+---
+description: TypeScript quality and naming rules for src
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+# TypeScript Quality
+
+- Strict TypeScript; avoid `any` and `unknown`
+- Keep files small and composable
+- Do not refactor unless requested
+- Shared types go in `src/lib/types`
+- Local-only types can stay in file
+- Prefer descriptive handler names (e.g. `handleSubmit`)
+- Constants and enums use `ALL_CAPS`
+
+## Naming Rules
+- Folders: `kebab-case`
+- Folder names use lowercase words separated by hyphens
+- `.ts` (non-components): `camelCase`
+- `.tsx` components: `PascalCase`
+- Classes (if used): `PascalCase`
+- No snake_case
+- No kebab-case for files
+- No PascalCase for non-class `.ts` files

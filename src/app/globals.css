@@ -1,0 +1,682 @@
+@import '../styles/fonts.css';
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+* {
+  font-family: 'EuclidCircular', 'Inter', sans-serif;
+}
+
+/* Always show scrollbar space */
+.always-scrollbar {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+/* Optional: make scrollbar clearly visible */
+.always-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  transition: width 0.2s ease;
+}
+
+.always-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 4px;
+}
+
+@theme inline {
+  /* Core colors */
+  --color-background: oklch(0.982 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.58 0.22 27);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
+
+  /* Charts */
+  --color-chart-1: oklch(0.809 0.105 251.813);
+  --color-chart-2: oklch(0.623 0.214 259.815);
+  --color-chart-3: oklch(0.546 0.245 262.881);
+  --color-chart-4: oklch(0.488 0.243 264.376);
+  --color-chart-5: oklch(0.424 0.199 265.638);
+
+  /* Radius */
+  --radius-sm: calc(0.625rem - 4px);
+  --radius-md: calc(0.625rem - 2px);
+  --radius-lg: 0.625rem;
+  --radius-xl: calc(0.625rem + 4px);
+  --radius-2xl: calc(0.625rem + 8px);
+  --radius-3xl: calc(0.625rem + 12px);
+  --radius-4xl: calc(0.625rem + 16px);
+
+  /* Sidebar */
+  --color-sidebar: oklch(0.985 0 0);
+  --color-sidebar-foreground: oklch(0.145 0 0);
+  --color-sidebar-primary: oklch(0.205 0 0);
+  --color-sidebar-primary-foreground: oklch(0.985 0 0);
+  --color-sidebar-accent: oklch(0.97 0 0);
+  --color-sidebar-accent-foreground: oklch(0.205 0 0);
+  --color-sidebar-border: oklch(0.922 0 0);
+  --color-sidebar-ring: oklch(0.708 0 0);
+
+  /* Fonts */
+  --font-sans: 'EuclidCircular', 'Inter', sans-serif;
+  --font-mono: ui-monospace, monospace;
+
+  /* Component tokens */
+
+  /*DateRangePicker*/
+  --color-avatar-text: #a0a0a0;
+  --color-avatar-background: #e5e5e5;
+  --color-date-range-selected: #8b5cf6;
+  --color-date-range-selected-foreground: #ffffff;
+  --color-date-range-range-middle: #f5f5f5;
+  --color-date-range-range-middle-foreground: #000000;
+  --color-date-range-range-start: #8b5cf6;
+  --color-date-range-range-start-foreground: #ffffff;
+  --color-date-range-range-end: #8b5cf6;
+  --color-date-range-range-end-foreground: #ffffff;
+
+  /*Pagination*/
+  --spacing-pagination-select-width: 70px;
+  --spacing-table-column-width: 220px;
+
+  --color-pagination-background: #f9fafb;
+  --color-pagination-border: #e5e5e5;
+  --color-pagination-text: #0a0a0a;
+  --color-pagination-text-muted: #737373;
+
+  /*BalanceCoverageBar*/
+  --color-balance-coverage-current: #0d9488;
+  --color-balance-coverage-excess: #a7f3d0;
+  --color-balance-coverage-recharge-primary: #ea580c;
+  --color-balance-coverage-recharge-additional: #fbbf24;
+  --color-balance-coverage-recharge: #fbbf24;
+  --color-balance-coverage-label: #ffffff;
+  --color-balance-coverage-legend-text: #737373;
+
+  /*ClaimsTrendBar*/
+  --color-claims-trend-bar: #ea580c;
+  --color-claims-trend-paid-bar: #0d9488;
+  --color-claims-trend-in-progress-bar: #fbbf24;
+  --color-claims-trend-closed-bar: #164e63;
+  --color-claims-trend-font: #000000;
+  --color-claims-trend-bar-tooltip-bg: #f3f4f6;
+  --color-claims-trend-bar-tooltip-text: #0a0a0a;
+  --color-claims-trend-bar-border-hover: #ea580c;
+
+  --text-claims-trend-font-size-axis-label: 11;
+  --text-claims-trend-font-size-legend: 12;
+  --text-claims-trend-font-weight: 400;
+  --text-claims-trend-tooltip-font-size: 12;
+  --text-claims-trend-tooltip-line-height: 16px;
+  --font-weight-claims-trend-tooltip-medium: 500;
+  --font-weight-claims-trend-tooltip-regular: 400;
+  --border-claims-trend-bar-hover: 2;
+
+  --radius-claims-trend-tooltip: 8px;
+  --radius-claims-trend-tooltip-swatch: 2px;
+  --radius-claims-trend-tooltip-arrow: 2px;
+
+  --spacing-claims-trend-tooltip-padding-x: 12px;
+  --spacing-claims-trend-tooltip-padding-y: 12px;
+  --spacing-claims-trend-tooltip-gap: 4px;
+  --spacing-claims-trend-tooltip-legend-gap: 6px;
+
+  --size-claims-trend-tooltip-swatch: 8px;
+  --size-claims-trend-tooltip-arrow: 10px;
+  --size-overview-chart-height: 280px;
+
+  /*GWPTrendBar*/
+  --color-gwp-trend-bar: #3b82f6;
+  --color-gwp-trend-line: #fbbf24;
+  --color-gwp-trend-line-area-start: #0f766e26;
+  --color-gwp-trend-line-area-end: #0f766e00;
+  --color-gwp-trend-line-point-border: #fbbf24;
+  --color-gwp-trend-font: #000000;
+  --color-gwp-trend-label: #737373;
+  --color-gwp-trend-grid: #e5e7eb;
+
+  --text-gwp-trend-font-size-axis-label: 11;
+  --text-gwp-trend-font-size-legend: 12;
+  --text-gwp-trend-font-weight: 400;
+  --spacing-gwp-trend-axis-padding: 40px;
+
+  /*DateRangePicker*/
+  --color-date-range-border: #e5e5e5;
+  --color-date-range-text: #0a0a0a;
+
+  --shadow-date-range: 0 1px 2px #0000000d;
+
+  /*IconSelect*/
+  --color-icon-select-border: #e5e5e5;
+  --color-icon-select-text: #0a0a0a;
+  --color-icon-select-accent: #8b5cf6;
+  --color-icon-select-accent-bg: #f5f3ff;
+  --color-icon-default-bg: #efe9fb;
+
+  --shadow-icon-select: 0 4px 6px #0000001a, 0 2px 4px #0000001a;
+  --shadow-icon-select-trigger: 0 1px 2px #0000000d;
+
+  --radius-icon-select-item: 6px;
+
+  /*LabeledSelect*/
+  --color-labeled-select-border: #e5e5e5;
+  --color-labeled-select-text: #0a0a0a;
+  --color-labeled-select-accent: #8b5cf6;
+  --color-labeled-select-accent-bg: #f5f3ff;
+
+  --shadow-labeled-select: 0 4px 6px #0000001a, 0 2px 4px #0000001a;
+  --shadow-labeled-select-trigger: 0 1px 2px #0000000d;
+
+  --radius-labeled-select-item: 6px;
+  --spacing-header-select-content-max-height: 200px;
+
+  /*MetricCard*/
+  --radius-metric-card: 14px;
+
+  --color-metric-card-border: #e5e5e5;
+  --color-metric-card-text: #0a0a0a;
+
+  --gradient-metric-card-bg:
+    linear-gradient(180deg, #17171700 0%, #6b21a805 100%),
+    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+
+  --text-metric-card-value: 30px;
+
+  /*TableWidths*/
+  --spacing-claim-number-column: 220px;
+  --spacing-policy-number-column: 180px;
+  --spacing-file-number-column: 240px;
+
+  /*ErrorCard*/
+  --radius-error-card: 14px;
+
+  --color-error-card-border: #e5e5e5;
+  --color-error-card-title: #0a0a0a;
+  --color-error-card-description: #737373;
+
+  --gradient-error-card-bg:
+    linear-gradient(180deg, #17171700 0%, #6b21a805 100%),
+    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+
+  --text-error-card-title: 20px;
+  --text-error-card-description: 14px;
+
+  /*MultiSelect*/
+  --color-multi-select-border: #e5e5e5;
+  --color-multi-select-text: #0a0a0a;
+  --color-multi-select-text-muted: #737373;
+  --color-multi-select-icon: #0a0a0a80;
+  --color-multi-select-accent: #8b5cf6;
+  --color-multi-select-accent-bg: #f5f3ff;
+
+  --shadow-multi-select-trigger: 0 1px 2px #0000000d;
+  --shadow-multi-select: 0 4px 6px #0000001a, 0 2px 4px #0000001a;
+
+  --radius-multi-select-item: 6px;
+
+  --spacing-multi-select-trigger-width: 12rem;
+  --spacing-multi-select-content-width: 16rem;
+  --spacing-multi-select-item-width: 10rem;
+
+  /*PolicySearchBar*/
+  --color-policy-search-border: #e5e5e5;
+  --color-policy-search-text: #0a0a0a;
+  --color-policy-search-button: #8b5cf6;
+  --color-policy-search-button-hover: #8b5cf6e6;
+  --color-policy-search-button-text: #fafafa;
+
+  --shadow-policy-search: 0 1px 2px #0000000d;
+
+  --spacing-policy-search-select-width: 228px;
+
+  /*Filters*/
+  --color-filters-border: #e5e5e5;
+  --color-filters-text: #0a0a0a;
+  --color-filters-muted: #737373;
+  --color-filters-accent-bg: #f5f3ff;
+  --color-filters-button-bg: #8b5cf6;
+  --color-filters-button-bg-hover: #8b5cf6e6;
+  --color-filters-button-text: #fafafa;
+
+  --shadow-filters: 0 4px 6px #0000001a, 0 2px 4px #0000001a;
+  --shadow-filters-trigger: 0 1px 2px #0000000d;
+
+  --radius-filters-item: 6px;
+
+  /*PromoCard*/
+  --color-promo-card-border: #e5e5e5;
+  --color-promo-card-text: #0a0a0a;
+  --color-promo-card-muted: #737373;
+  --color-promo-card-button-border: #e5e5e5;
+  --color-promo-card-button-text: #0a0a0a;
+  --color-promo-card-chevron: #0a0a0a;
+  --color-promo-card-badge-warning-border: #fef9c3;
+  --color-promo-card-badge-warning-bg: #fef9c3;
+  --color-promo-card-badge-warning-text: #a16207;
+  --color-promo-card-badge-success-border: #bbf7d0;
+  --color-promo-card-badge-success-bg: #dcfce7;
+  --color-promo-card-badge-success-text: #166534;
+  --color-promo-card-badge-info-border: #bfdbfe;
+  --color-promo-card-badge-info-bg: #dbeafe;
+  --color-promo-card-badge-info-text: #1d4ed8;
+
+  --radius-promo-card: 14px;
+  --radius-promo-card-button: 10px;
+
+  --gradient-promo-card-bg:
+    linear-gradient(180deg, #17171700 0%, #f59e0b05 100%),
+    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+
+  --shadow-promo-card-button: 0 1px 2px #0000000d;
+
+  --text-promo-card-badge: 10px;
+  --leading-promo-card-badge: 16px;
+
+  --spacing-promo-card-badge-top: 23px;
+
+  /*SegmentedTabs*/
+  --radius-segmented-tabs: 10px;
+  --radius-segmented-tab: 8px;
+
+  --color-segmented-tabs-bg: #fafafa;
+  --color-segmented-tab-text: #0a0a0a;
+  --color-segmented-tab-active-bg: #f3e8ff;
+  --color-segmented-tab-active-text: #8b5cf6;
+
+  /*RefundDestinationOption*/
+  --color-refund-destination-selected-border: #8b5cf6;
+  --gradient-refund-destination-selected-bg: linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0.9) 100%
+    ),
+    #8b5cf6;
+
+  --spacing-segmented-tabs-padding: 3px;
+
+  /*ShareChannelRow*/
+  --color-share-channel-text: #0a0a0a;
+  --color-share-channel-muted: #737373;
+
+  /*ShareRecipientCard*/
+  --radius-share-recipient: 10px;
+
+  --color-share-recipient-border: #e5e5e5;
+  --color-share-recipient-border-active: #8b5cf6;
+  --color-share-recipient-bg: #ffffff;
+  --color-share-recipient-bg-active: #f3e8ff;
+  --color-share-recipient-text: #0a0a0a;
+  --color-share-recipient-muted: #737373;
+  --color-share-recipient-chevron: #0a0a0a;
+
+  /*SimpleSelect*/
+  --color-simple-select-border: #e5e5e5;
+  --color-simple-select-text: #0a0a0a;
+  --color-simple-select-accent: #8b5cf6;
+  --color-simple-select-accent-bg: #f5f3ff;
+
+  --shadow-simple-select: 0 4px 6px #0000001a, 0 2px 4px #0000001a;
+  --shadow-simple-select-trigger: 0 1px 2px #0000000d;
+
+  --radius-simple-select-item: 6px;
+
+  /*TooltipCallout*/
+  --color-tooltip-callout-bg: #f3f4f6;
+  --color-tooltip-callout-text: #171717;
+  --color-tooltip-callout-button-border: #e5e5e5;
+  --color-tooltip-callout-button-text: #0a0a0a;
+  --color-tooltip-callout-button-bg: #ffffff;
+  --color-tooltip-callout-button-hover: #ffffff;
+  --color-tooltip-callout-close: #0a0a0ab3;
+  --color-tooltip-callout-close-hover: #0a0a0a;
+
+  --spacing-tooltip-callout-text-max: 70%;
+
+  --shadow-tooltip-callout-button: 0 1px 2px #0000000d;
+
+  --radius-tooltip-callout-arrow: 2px;
+  --radius-tooltip-callout-close: 2px;
+
+  /*UnderlineTabs*/
+  --color-underline-tabs-text: #737373;
+  --color-underline-tabs-active: #0a0a0a;
+  --color-underline-tabs-border: #8b5cf6;
+
+  /*UploadToast*/
+  --color-upload-toast-pending: #fefce8;
+  --color-upload-toast-success: #dcfce7;
+  --color-upload-toast-error: #fee2e2;
+  --color-upload-toast-partial: #f9fafb;
+  --color-upload-toast-border: #e5e5e5;
+  --color-upload-toast-text: #0a0a0a;
+  --color-upload-toast-text-muted: #0a0a0ae6;
+  --color-upload-toast-button-border: #e5e5e5;
+  --color-upload-toast-button-text: #0a0a0a;
+  --color-upload-toast-button-bg: #ffffff;
+  --color-upload-toast-close: #0a0a0ab3;
+  --color-upload-toast-close-hover: #0a0a0a;
+
+  --shadow-upload-toast: 0 10px 15px #0000001a, 0 4px 6px #0000001a;
+
+  --radius-upload-toast-close: 2px;
+
+  /*UploadRequiredBanner*/
+  --color-upload-required-banner-bg: #ebf3ff;
+  --color-upload-required-banner-border: #bfdbfe;
+  --color-upload-required-banner-title: #1d4ed8;
+  --color-upload-required-banner-description: #1d4ed8;
+  --color-upload-required-banner-button-border: #d4d4d8;
+  --color-upload-required-banner-button-bg: #ffffff;
+  --color-upload-required-banner-button-text: #171717;
+  --color-upload-required-banner-button-hover-bg: #f4f4f5;
+  --color-upload-required-banner-button-hover-text: #171717;
+
+  --shadow-upload-required-banner-button: 0 1px 2px #0000000d;
+
+  /*BalanceCoverageCard*/
+  --color-balance-coverage-title: #737373;
+  --color-balance-coverage-amount: #0a0a0a;
+  --color-balance-coverage-border: #e5e5e5;
+  --color-balance-coverage-bg: #ffffff;
+
+  --spacing-balance-coverage-header-gap: 6px;
+  --spacing-balance-coverage-gap: 24px;
+
+  --radius-balance-coverage-card: 14px;
+  --radius-balance-coverage-bar: 8px;
+  --spacing-balance-coverage-bar-height: 40px;
+
+  /*ClaimsTableCard*/
+  --color-claims-table-summary: #737373;
+  --color-claims-table-icon: #0a0a0a;
+  --color-claims-table-select-text: #0a0a0a;
+  --color-claims-table-header-bg: #f9fafb;
+  --color-claims-table-border: #e5e5e5;
+  --color-claims-table-link: #2563eb;
+
+  --spacing-claims-table-month-select-width: 160px;
+  --spacing-claims-table-status-select-width: 120px;
+  --spacing-claims-table-date-range-picker-width: 240px;
+  --spacing-claims-table-row-height: 42px;
+
+  --radius-claims-table: 14px;
+
+  /*ClaimsTableDialog*/
+  --color-claims-table-dialog-bg: #ffffff;
+  --color-claims-table-dialog-primary-bg: #7c3aed;
+  --color-claims-table-dialog-primary-bg-hover: #6d28d9;
+  --color-claims-table-dialog-primary-text: #ffffff;
+  --color-claims-table-dialog-outline-border: #e5e5e5;
+  --color-claims-table-dialog-outline-text: #0a0a0a;
+
+  --shadow-claims-table-dialog: 0 10px 15px #0000001a, 0 4px 6px #0000001a;
+
+  --radius-claims-table-dialog: 14px;
+
+  /*UploadAdditionalDocumentsDialog*/
+  --color-upload-additional-documents-table-border: #e5e5e5;
+  --color-upload-additional-documents-table-bg: #ffffff;
+  --color-upload-additional-documents-table-primary-bg: #7c3aed;
+  --color-upload-additional-documents-table-primary-bg-hover: #6d28d9;
+  --color-upload-additional-documents-table-primary-text: #ffffff;
+  --color-upload-additional-documents-table-primary-text-hover: #ffffff;
+
+  --shadow-upload-additional-documents-table: 0 1px 2px 0 #0000000d;
+
+  --spacing-upload-additional-documents-table-max-height: 574px;
+
+  /*ClaimsTrendCard*/
+  --color-claims-trend-border: #e5e5e5;
+  --color-claims-trend-title: #0a0a0a;
+  --color-claims-trend-icon: #737373;
+  --color-claims-trend-tooltip: #ede9fe;
+  --color-claims-trend-tooltip-text: #0a0a0a;
+
+  --radius-claims-trend-card: 14px;
+  --radius-claims-trend-tooltip: 8px;
+
+  --spacing-claims-trend-info-size: 18px;
+
+  /*PolicyInformationCard*/
+  --color-policy-info-border: #e5e5e5;
+  --color-policy-info-bg: #ffffff;
+  --color-policy-info-title: #0a0a0a;
+  --color-policy-info-label: #737373;
+  --color-policy-info-value: #0a0a0a;
+  --color-policy-info-icon: #737373;
+  --color-policy-info-icon-hover: #0a0a0a;
+
+  --radius-policy-info-card: 10px;
+
+  --shadow-policy-info-card: 0 1px 2px #0000000d;
+
+  /*PolicyHealthCard*/
+  --color-policy-health-card-bg: #ffffff;
+  --color-policy-health-card-border: #e5e5e5;
+  --color-policy-health-card-title: #0a0a0a;
+  --color-policy-health-card-label: #0a0a0a;
+  --color-policy-health-card-value: #737373;
+
+  --radius-policy-health-card: 14px;
+  --shadow-policy-health-card: 0 1px 2px #0000000d;
+  --spacing-policy-health-card-width: 556px;
+
+  --spacing-policy-details-select-width: 295px;
+
+  /*GwpTrendCard*/
+  --color-gwp-trend-border: #e5e5e5;
+  --color-gwp-trend-title: #0a0a0a;
+  --color-gwp-trend-icon: #737373;
+  --color-gwp-trend-tooltip: #ede9fe;
+  --color-gwp-trend-tooltip-text: #0a0a0a;
+
+  --radius-gwp-trend-card: 14px;
+  --radius-gwp-trend-tooltip: 8px;
+
+  --spacing-gwp-trend-info-size: 18px;
+
+  /*PolicyBulkUploadCard*/
+  --color-policy-bulk-upload-border: #e5e5e5;
+  --color-policy-bulk-upload-icon-bg: #ffffff;
+  --color-policy-bulk-upload-title: #0a0a0a;
+  --color-policy-bulk-upload-muted: #737373;
+  --color-policy-bulk-upload-text: #0a0a0a;
+  --color-policy-bulk-upload-panel-bg: #ffffff;
+  --color-policy-bulk-upload-primary: #8b5cf6;
+  --color-policy-bulk-upload-primary-hover: #8b5cf6e6;
+  --color-policy-bulk-upload-primary-text: #ffffff;
+  --color-policy-bulk-upload-card-bg: #ffffff;
+  --color-policy-bulk-upload-back: #ca8a04;
+  --color-policy-bulk-upload-back-hover: #ca8a04cc;
+  --color-policy-bulk-upload-close: #0a0a0ab3;
+  --color-policy-bulk-upload-close-hover: #0a0a0a;
+  --color-policy-bulk-upload-file-success-border: #15803d;
+  --color-policy-bulk-upload-file-success-icon: #15803d;
+  --color-policy-bulk-upload-file-error-border: #dc2626;
+  --color-policy-bulk-upload-file-error-icon: #dc2626;
+
+  --radius-policy-bulk-upload-state: 10px;
+  --radius-policy-bulk-upload-icon: 8px;
+  --radius-policy-bulk-upload-card: 14px;
+  --radius-policy-bulk-upload-panel: 14px;
+  --radius-policy-bulk-upload-close: 2px;
+
+  --spacing-policy-bulk-upload-max-width: 300px;
+  --spacing-policy-bulk-upload-button-width: 110px;
+
+  --shadow-policy-bulk-upload-icon: 0 1px 2px #0000000d;
+  --shadow-policy-bulk-upload-card: 0 1px 3px #0000001a, 0 1px 2px #0000001a;
+
+  /*RecentSearchesTable*/
+  --color-recent-searches-status-active-bg: #dcfce7;
+  --color-recent-searches-status-inactive-bg: #fee2e2;
+  --color-recent-searches-status-text: #171717;
+  --color-recent-searches-border: #e5e5e5;
+  --color-recent-searches-bg: #ffffff;
+  --color-recent-searches-header-bg: #f9fafb;
+  --color-recent-searches-link: #2563eb;
+  --color-recent-searches-action: #0a0a0a;
+  --color-recent-searches-note: #737373;
+
+  --radius-recent-searches-table: 14px;
+
+  /*SharePolicyCard*/
+  --color-share-policy-border: #e5e5e5;
+  --color-share-policy-text: #0a0a0a;
+  --color-share-policy-muted: #737373;
+  --color-share-policy-panel-border: #e5e5e5;
+  --color-share-policy-close: #0a0a0ab3;
+  --color-share-policy-close-hover: #0a0a0a;
+  --color-share-policy-primary: #8b5cf6;
+  --color-share-policy-primary-hover: #8b5cf6e6;
+  --color-share-policy-primary-text: #ffffff;
+  --color-share-policy-info-border: #bfdbfe;
+  --color-share-policy-info-bg: #eff6ff;
+  --color-share-policy-info-text: #2563eb;
+
+  --radius-share-policy-card: 10px;
+  --radius-share-policy-panel: 14px;
+  --radius-share-policy-info: 8px;
+
+  --spacing-share-policy-info-icon-size: 16px;
+
+  --shadow-share-policy-card: 0 1px 2px #0000000d;
+
+  /*EndorsePolicyCard*/
+  --color-endorse-policy-border: #e5e5e5;
+  --color-endorse-policy-bg: #ffffff;
+  --color-endorse-policy-text: #0a0a0a;
+  --color-endorse-policy-muted: #737373;
+  --color-endorse-policy-icon: #0a0a0a;
+  --color-endorse-policy-close: #0a0a0ab3;
+  --color-endorse-policy-close-hover: #0a0a0a;
+  --color-endorse-policy-action-border: #e5e5e5;
+  --color-endorse-policy-action-bg: #ffffff;
+  --color-endorse-policy-action-hover: #fafafa;
+  --color-endorse-policy-notice-bg: #fefce8;
+  --color-endorse-policy-notice-border: #fef08a;
+  --color-endorse-policy-notice-title: #854d0e;
+  --color-endorse-policy-notice-text: #854d0e;
+  --color-endorse-policy-badge-warning-bg: #fef9c3;
+  --color-endorse-policy-badge-warning-border: #fef9c3;
+  --color-endorse-policy-badge-warning-text: #a16207;
+  --color-endorse-policy-badge-success-bg: #dcfce7;
+  --color-endorse-policy-badge-success-border: #dcfce7;
+  --color-endorse-policy-badge-success-text: #166534;
+  --color-endorse-policy-badge-error-bg: #fee2e2;
+  --color-endorse-policy-badge-error-border: #fee2e2;
+  --color-endorse-policy-badge-error-text: #991b1b;
+  --color-select-claim-type-text: #6815e4;
+  --radius-endorse-policy-card: 10px;
+  --radius-endorse-policy-action: 14px;
+  --radius-endorse-policy-badge: 8px;
+  --radius-endorse-policy-notice: 8px;
+
+  --shadow-endorse-policy-card: 0 1px 2px #0000000d;
+  --shadow-endorse-policy-action: 0 1px 2px #0000000d;
+  --shadow-endorse-policy-notice: none;
+  --spacing-width-200: 200px;
+  --spacing-width-220: 220px;
+  --spacing-width-180: 180px;
+  --spacing-width-150: 150px;
+  --spacing-width-380: 380px;
+  --spacing-height-60: 60px;
+  --spacing-width-280: 280px;
+  --spacing-endorse-modal-width: 600px;
+
+  /*ClaimsManagementTable*/
+  --color-claims-management-table-border: #e5e5e5;
+  --color-claims-management-table-header-bg: #f9fafb;
+  --color-claims-management-table-link: #2563eb;
+
+  --radius-claims-management-table: 14px;
+
+  /*ClaimsDetailsActionButton*/
+  --color-claims-details-action-button-bg: #8b5cf6;
+  --color-claims-details-action-button-text: #ffffff;
+  --color-claims-details-action-button-hover-bg: #7c3aed;
+  --color-claims-details-action-button-hover-text: #ffffff;
+
+  --shadow-claims-details-action-button: 0 1px 2px #0000000d;
+
+  /*CreateClaimButton*/
+  --color-create-claim-button: #8b5cf6;
+  --color-create-claim-button-border: #8b5cf6;
+  --color-create-claim-button-hover: #7c3aed;
+  --color-create-claim-button-text: #ffffff;
+
+  --shadow-create-claim-button: 0 1px 2px #0000000d;
+
+  /*SidebarUserMenu*/
+  --color-sidebar-user-avatar-bg: #171717;
+  --color-sidebar-user-avatar-text: #fafafa;
+  --color-sidebar-user-name: #0a0a0a;
+  --color-sidebar-user-email: #737373;
+  --color-sidebar-user-icon: #737373;
+  --color-sidebar-user-hover-bg: #f5f5f5;
+  --radius-sidebar-user-avatar: 10px;
+  --radius-sidebar-user-button: 8px;
+  --spacing-sidebar-user-avatar: 32px;
+
+  /*StatusTimeline*/
+  --color-status-timeline-border: #e5e5e5;
+  --color-status-timeline-bg: #ffffff;
+  --color-status-timeline-title: #0a0a0a;
+  --color-status-timeline-item-title: #0a0a0a;
+  --color-status-timeline-item-description: #737373;
+  --color-status-timeline-line: #e5e5e5;
+
+  --radius-status-timeline: 10px;
+
+  --shadow-status-timeline: 0 1px 2px #0000000d;
+
+  --spacing-status-timeline-dot: 8px;
+
+  /*Switch*/
+  --color-switch-track: #e5e5e5;
+  --color-switch-track-checked: #8b5cf6;
+  --color-switch-thumb: #ffffff;
+
+  /*TenureDistributionCard*/
+  --color-tenure-distribution-row-active: #f5f3ff;
+  --color-tenure-distribution-row-pending-delete: #fef2f2;
+  --color-tenure-distribution-table-header-bg: #f9fafb;
+  --color-tenure-distribution-add-range-bg: #f9fafb;
+  --color-tenure-distribution-add-range-button-bg: #f5f5f5;
+  --color-tenure-distribution-add-range-button-text: #171717;
+
+  /*InlineFormErrorBanner*/
+  --color-inline-form-error-bg: #fef2f2;
+  --color-inline-form-error-border: #fecaca;
+  --color-inline-form-error-text: #991b1b;
+
+  /*ConfigureMetricsFooter*/
+  --color-configure-metrics-footer-bg: #f9fafb;
+  --color-configure-metrics-save-button-bg: #8b5cf6;
+  --color-configure-metrics-save-button-bg-hover: #7c3aed;
+  --color-configure-metrics-save-button-text: #fafafa;
+
+  /*Calendar*/
+  --color-calendar-bg: #f9f9f9;
+  --radius-calendar: var(--radius-md);
+}
+
+.refund-destination-option-selected {
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-share-recipient-border-active, #8b5cf6);
+  background: var(--color-share-recipient-bg-active, #f3e8ff);
+}
