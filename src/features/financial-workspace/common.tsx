@@ -144,8 +144,12 @@ export function DataGate({
 export function ApdBanner({ compact = false }: { compact?: boolean }) {
   const { snapshot } = useFinancialWorkspace();
   const uncertain = snapshot.dataState !== 'ready' || snapshot.reconciliation === 'mismatch';
-  const mode = uncertain ? 'unknown' : snapshot.apd;
+  const mode = uncertain ? 'unknown' : !snapshot.apdEnabled ? 'disabled' : snapshot.apd;
   const content = {
+    disabled: [
+      'APD is disabled for this wallet group',
+      'Balances still require reconciliation. Automatic grace, blocking and recovery rules are not applied to this group.',
+    ],
     healthy: [
       'Issuance is active',
       'Your wallet group is funded. All mapped plans follow this APD state.',

@@ -7,10 +7,7 @@ import type { MetricCardData } from '@/lib/types/overview';
 import type { OverviewKpiComponentResponse } from '@/lib/types/overview/components';
 import { formatNumber } from '@/lib/utils';
 import { CURRENCY_UNIT_MAP } from '@/lib/constants/global.constants';
-import {
-  getKpiInfoText,
-  normalizeKpiComponentId,
-} from '@/lib/utils/overview/overviewChart.utils';
+import { getKpiInfoText, normalizeKpiComponentId } from '@/lib/utils/overview/overviewChart.utils';
 
 function getKpiDisplayLabel(componentId: string, apiLabel: string): string {
   const normalizedComponentId = normalizeKpiComponentId(componentId);
@@ -24,6 +21,7 @@ function getKpiDisplayLabel(componentId: string, apiLabel: string): string {
 
 function formatKpiValue(response: OverviewKpiComponentResponse): string {
   const { value, currency, unit } = response.payload;
+  if (value == null) return '—';
 
   if (currency) {
     return `${CURRENCY_UNIT_MAP[currency] ?? ''}${formatNumber(value)}`;

@@ -19,14 +19,23 @@ type AccessDeniedErrorResponse = {
 };
 
 export default function Providers({ children }: { children: ReactNode }) {
-  if (FINANCIAL_SIMULATOR_ENABLED)
-    return (
-      <>
-        {children}
-        <Toaster />
-      </>
-    );
+  if (FINANCIAL_SIMULATOR_ENABLED) return <SimulatorProviders>{children}</SimulatorProviders>;
   return <LiveProviders>{children}</LiveProviders>;
+}
+
+function SimulatorProviders({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+      }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      {children}
+      <Toaster />
+    </QueryClientProvider>
+  );
 }
 
 function LiveProviders({ children }: { children: ReactNode }) {

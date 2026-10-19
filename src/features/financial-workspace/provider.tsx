@@ -23,23 +23,31 @@ function useWorkspaceState(gateway: FinanceGateway) {
   const [selectedVan, setSelectedVan] = useState('VAN-1');
   const [pending, setPending] = useState(false);
   const [failNextAction, setFailNextAction] = useState(false);
+  const [timeoutNextAction, setTimeoutNextAction] = useState(false);
+  const [unknownOutcome, setUnknownOutcome] = useState<string | null>(null);
+  const pendingOutcome = useRef<{ result: Snapshot; generation: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
   const inFlight = useRef(false);
   const view = selectView(snapshot, role);
 
-  const configure = async (topology: Topology, nextScenario: Scenario) => {
+  const configure = async (topology: Topology, nextScenario: Scenario, nextRole?: Role) => {
     const request = ++generation.current;
     const result = await gateway.load(topology, nextScenario);
     if (request !== generation.current) return;
     setSnapshot(result);
+    if (nextRole) setRoleState(nextRole);
     setScenario(nextScenario);
     setSelectedVan('VAN-1');
     setError(null);
     setFailNextAction(false);
+    setUnknownOutcome(null);
+    pendingOutcome.current = null;
+    setTimeoutNextAction(false);
     if (
-      (topology === 'eternal' && role === 'credit-vidya') ||
-      (topology === 'cred' && role === 'eternal-group-finance')
+      !nextRole &&
+      ((topology === 'eternal' && role === 'credit-vidya') ||
+        (topology === 'cred' && role === 'eternal-group-finance'))
     )
       setRoleState('partner-finance');
   };
@@ -50,7 +58,7 @@ function useWorkspaceState(gateway: FinanceGateway) {
     setError(null);
   };
   const execute = async (command: Command): Promise<boolean> => {
-    if (inFlight.current) return false;
+    if (inFlight.current || unknownOutcome) return false;
     inFlight.current = true;
     setPending(true);
     setError(null);
@@ -66,6 +74,13 @@ function useWorkspaceState(gateway: FinanceGateway) {
       }
       const result = await gateway.execute(snapshot, role, command, key);
       if (request !== generation.current) return false;
+      if (timeoutNextAction) {
+        setTimeoutNextAction(false);
+        pendingOutcome.current = { result, generation: request };
+        setUnknownOutcome(key);
+        setError('The response was interrupted. Check the request status before submitting again.');
+        return false;
+      }
       setSnapshot(result);
       toast.success(result.audit.at(-1)?.title || 'Request completed');
       return true;
@@ -82,7 +97,7 @@ function useWorkspaceState(gateway: FinanceGateway) {
     }
   };
   const system = (event: SystemEvent) => {
-    if (inFlight.current) return;
+    if (inFlight.current || unknownOutcome) return;
     try {
       generation.current += 1;
       const result = applySystemEvent(snapshot, event);
@@ -92,6 +107,18 @@ function useWorkspaceState(gateway: FinanceGateway) {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Unable to apply event');
     }
+  };
+  const checkOutcome = () => {
+    const held = pendingOutcome.current;
+    if (held && held.generation === generation.current) {
+      setSnapshot(held.result);
+      setError(null);
+      toast.success('Request confirmed. The original operation completed once.');
+    } else {
+      setError('Context changed. Reload the scenario to retrieve a fresh authorized snapshot.');
+    }
+    setUnknownOutcome(null);
+    pendingOutcome.current = null;
   };
   const setApdBasis = (basis: Snapshot['apdBasis']) => {
     generation.current += 1;
@@ -108,7 +135,11 @@ function useWorkspaceState(gateway: FinanceGateway) {
     configure,
     selectedVan,
     setSelectedVan,
-    pending,
+    pending: pending || !!unknownOutcome,
+    unknownOutcome,
+    timeoutNextAction,
+    setTimeoutNextAction,
+    checkOutcome,
     error,
     clearError: () => setError(null),
     execute,

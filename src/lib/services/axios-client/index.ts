@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
+import { localDemoAdapter } from '@/lib/services/localDemo/adapter';
 import { toast } from 'sonner';
 import { removeAccessToken } from '@/lib/utils/auth';
 import { getLoginUrl } from '@/lib/utils/environment';
@@ -25,6 +27,7 @@ let isSessionExpiredHandling = false;
 axiosInstance.interceptors.request.use(
   (config) => {
     config.headers = config.headers ?? {};
+    if (FINANCIAL_SIMULATOR_ENABLED) config.adapter = localDemoAdapter;
 
     if (currentTenant) {
       config.headers['x-Acko-Tenant'] = currentTenant;

@@ -16,7 +16,10 @@ export function OverviewPreview() {
   const { snapshot, view } = useFinancialWorkspace();
   const base = `/${partner}/dashboard`;
   const available = view.balances.reduce((sum, item) => sum + item.available, 0);
-  const canShowFloat = snapshot.dataState === 'ready' && view.actor.capabilities.includes('view');
+  const canShowFloat =
+    snapshot.dataState === 'ready' &&
+    snapshot.reconciliation === 'matched' &&
+    view.actor.capabilities.includes('view');
   const { welcomeSubtitle, businessSummaryTitle, newFeaturesTitle } = STATIC_OVERVIEW_RESPONSE;
 
   return (
@@ -31,7 +34,22 @@ export function OverviewPreview() {
         </div>
         <div className="grid grid-cols-3 gap-4">
           <MetricCard card={{ label: 'Total policies issued', value: '1,248' }} />
-          <MetricCard card={{ label: 'Gross premium', value: '₹12,48,000' }} />
+          <MetricCard
+            card={{
+              label: 'Net posted premium · permitted VANs',
+              value: canShowFloat
+                ? money(
+                    -view.movements
+                      .filter((m) =>
+                        ['premium', 'premium-adjustment', 'adjustment'].includes(m.kind),
+                      )
+                      .reduce((n, m) => n + m.amount, 0),
+                  )
+                : '—',
+              infoText:
+                'Same posted premium and corrections as Financials, across your granted VANs. Operational plan access is independent.',
+            }}
+          />
           <Link
             href={`${base}/financials`}
             className="block rounded-metric-card focus-visible:outline-2 focus-visible:outline-share-policy-primary"

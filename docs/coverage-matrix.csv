@@ -1,0 +1,13 @@
+Source,Problem,Stories,Frontend coverage,Integration or decision remaining
+Float 1,Premium corrections,F04 F05 F16 F21,Separate signed corrections; effective and posting dates; independent review; source state,"FinAcko source quality, reconciliation, immutable ledger, posting calendar"
+Float 2,Bank payout timing,F08 F09 F10,Pending/failed holds; retry; manual settlement; one debit on completion,"Cashfree callbacks, payout attempt locks, bank completion evidence"
+Float 3,Offline transfer timing,F03 F07 F10 F15,UTR duplicate guard; completed date; verified match; separate deposit refund,Bank feed and verified reconciliation
+Float 4,TDS and TCS,F06,Non-zero fixture columns; explicit verified tax credit entry,"Tax rates and base, certificates, matching and automation"
+Float 5,Bulk and grace refunds,F11 F12,Batch validation; per-policy obligations; held float credit during grace,"Cancellation eligibility, approved amounts, claims exceptions"
+Float 6,VAN ownership,F01 F02,Single/all/subset account selection; aggregate selection; separate ledgers; attribution masking,"Authoritative registry, mapping/version activation and contractual disclosure"
+Float 7,Users and privileges,F05 F17 F18 F19,Settings editor; independent VAN/plan grants; deactivation; self-edit and overgrant guards,Authenticated IAM enforcement; invite delivery; module-level action grants
+Master APD,Grace recovery,F12 F13 F14 F23,Escalation/reset; holds; communication variants; no auto cancellation,"Scheduler, deadlines, actual issuance blocks, cancellation review report"
+Reliability,Unknown outcome and failure,F20 F22 S02 S03,Preserved form; status lookup before retry; explicit loading/error,Server durable idempotency and outcome lookup
+Trust,Missing stale revoked data,S01 S04 S05 F21,No silent zero; unverified status; access boundary,Authoritative source and grant changes
+Original portal,Existing workflow continuity,Original Overview/Policy/Claims/Reports/Settings,Original components retained and previewed with sample records,Live services required for unsupported operational writes
+Registry,VAN onboarding/mapping,Outside portal,Existing model retains historical mapping versions,Ackcelerator/VAM registry and mapping activation remain external

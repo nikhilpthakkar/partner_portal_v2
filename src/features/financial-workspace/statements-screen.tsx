@@ -6,12 +6,12 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { PageHeading, PAGE_LAYOUT_CLASS } from '@/components/molecules/PageHeading';
 import { cn } from '@/lib/utils';
-import { exportStatements } from './domain';
+import { buildLedgerRows, ledgerCsv } from './ledger';
 import { useFinancialWorkspace } from './provider';
 import { DataGate, EmptyState, SourceLine } from './common';
 
 export function FinancialStatements() {
-  const { snapshot, view, role, failNextAction, setFailNextAction } = useFinancialWorkspace();
+  const { snapshot, view, failNextAction, setFailNextAction } = useFinancialWorkspace();
   const [downloadError, setDownloadError] = useState('');
   const download = (vanIds: string[]) => {
     try {
@@ -19,7 +19,9 @@ export function FinancialStatements() {
         setFailNextAction(false);
         throw new Error('Statement download failed. Please retry; your scope is preserved.');
       }
-      const csv = exportStatements(snapshot, role, vanIds);
+      if (!view.actor.capabilities.includes('export') || snapshot.dataState === 'empty')
+        throw new Error('Statement export is unavailable.');
+      const csv = ledgerCsv(buildLedgerRows(view, vanIds, 'Day'), snapshot.cutoff);
       const href = URL.createObjectURL(
         new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' }),
       );
@@ -84,7 +86,7 @@ export function FinancialStatements() {
                         {b.van.id} · {b.van.label}
                       </h3>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Opening, posted movements and closing · source cutoff · mapping version
+                        Opening, daily totals, closing, held and available · source cutoff
                       </p>
                     </div>
                   </div>

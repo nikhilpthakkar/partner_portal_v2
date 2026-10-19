@@ -19,7 +19,8 @@ export type ActionRequest = { type: 'dispute'; vanId: string; reference: string 
 
 /** The only Financials action in this preview is the portal's existing dispute workflow. */
 export function ActionDialog({ action, onClose }: { action: ActionRequest; onClose: () => void }) {
-  const { view, execute, pending, error, clearError } = useFinancialWorkspace();
+  const { view, execute, pending, error, clearError, unknownOutcome, checkOutcome } =
+    useFinancialWorkspace();
   const [reference, setReference] = useState(action.reference);
   const [reason, setReason] = useState('');
   const [review, setReview] = useState(false);
@@ -134,6 +135,20 @@ export function ActionDialog({ action, onClose }: { action: ActionRequest; onClo
               {validation || error}
             </div>
           )}
+          <div>
+            {unknownOutcome && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  checkOutcome();
+                  onClose();
+                }}
+              >
+                Check request status
+              </Button>
+            )}
+          </div>
           <DialogFooter>
             <Button
               type="button"

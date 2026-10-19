@@ -1,7 +1,7 @@
 import Overview from '@/features/overview';
 import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
-import { OverviewPreview } from '@/features/financial-workspace/overview-preview';
+import { PortalOverview } from '@/features/financial-workspace/portal-pages';
 
 export default function OverviewPage() {
-  return FINANCIAL_SIMULATOR_ENABLED ? <OverviewPreview /> : <Overview />;
+  return FINANCIAL_SIMULATOR_ENABLED ? <PortalOverview /> : <Overview />;
 }

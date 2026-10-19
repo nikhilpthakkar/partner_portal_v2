@@ -1,3 +1,7 @@
+## Financial completion preview
+
+See [handoff and original-build comparison](docs/financial-completion-handoff.md). The baseline is preserved at `baseline-minimal-financials`; the enhanced frontend includes guided stories and deliverables.
+
 # Embedded Partner Portal Frontend
 
 A production-oriented dashboard application for enterprise partners, built with Next.js and TypeScript.

@@ -29,10 +29,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { ROLE_LABELS, SCENARIOS, type Role, type Scenario, type Topology } from './domain';
+import { SCENARIOS, type Role, type Scenario, type Topology } from './domain';
 import { Picker, EmptyState } from './common';
 import { useFinancialWorkspace } from './provider';
 import './workspace.css';
+import { SimulatorStudio, StoryGuide } from './simulator-studio';
 
 export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
   const {
@@ -48,7 +49,12 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
     setFailNextAction,
     setApdBasis,
     markRead,
+    unknownOutcome,
+    timeoutNextAction,
+    setTimeoutNextAction,
+    checkOutcome,
   } = useFinancialWorkspace();
+  const [activeStory, setActiveStory] = useState<string | null>(null);
   const [controls, setControls] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [support, setSupport] = useState(false);
@@ -60,35 +66,25 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
   const unread = view.notices.filter((n) => !n.read).length;
   const nav = [
     { label: 'Overview', path: 'overview', icon: LayoutDashboard },
-    { label: 'Policy management', path: 'policy-management', icon: FileText, unavailable: true },
+    { label: 'Policy management', path: 'policy-management', icon: FileText },
     {
       label: 'Claims management',
       path: 'claims-management',
       icon: ClipboardList,
-      unavailable: true,
     },
     { label: 'Financials', path: 'financials', icon: WalletCards },
-    ...(view.actor.internal
+    ...(view.actor.planIds.length > 0
       ? [{ label: 'Manual refunds', path: 'manual-refunds', icon: Banknote }]
       : []),
     { label: 'Statements & reports', path: 'reports', icon: FileText },
+    { label: 'Settings', path: 'settings/access-management', icon: Settings2 },
   ];
-  const supported = ['overview', 'financials', 'manual-refunds', 'reports'].some((p) =>
-    pathname.endsWith('/' + p),
-  );
+  const supported = true;
+  const operationalRoute =
+    pathname.includes('/policy-management') || pathname.includes('/claims-management');
   const links = nav.map((item) => (
     <div key={item.path}>
-      {item.unavailable ? (
-        <button
-          type="button"
-          onClick={() => setSupport(true)}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted-foreground"
-          title="Requires the connected backend"
-        >
-          <item.icon className="size-4" />
-          {item.label}
-        </button>
-      ) : (
+      {
         <Link
           href={`${base}/${item.path}`}
           className={cn(
@@ -100,7 +96,7 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
           <item.icon className="size-4" />
           {item.label}
         </Link>
-      )}
+      }
     </div>
   ));
   return (
@@ -126,9 +122,11 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
-                {view.actor.internal ? 'ACKO Finance' : view.actor.partnerIds.join(', ')}
+                {view.actor.internal
+                  ? 'ACKO Finance'
+                  : view.actor.partnerIds.join(', ') || 'Financial scope only'}
               </p>
-              <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
+              <p className="truncate text-xs text-muted-foreground">{view.actor.label}</p>
             </div>
           </div>
           <div className="flex items-center justify-center gap-3 border-t border-border py-4 text-xs">
@@ -165,12 +163,12 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
                 Wallet group ·{' '}
                 {view.actor.internal
                   ? 'Internal finance workspace'
-                  : view.actor.partnerIds.join(', ')}
+                  : view.actor.partnerIds.join(', ') || 'Financial scope only'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</span>
+            <span className="text-xs text-muted-foreground">{view.actor.label}</span>
             <Button
               variant="ghost"
               size="icon"
@@ -190,8 +188,39 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="finance-scroll min-w-0 flex-1 overflow-auto" id="main-content">
+          {unknownOutcome && (
+            <div role="alert" className="m-5 finance-warning rounded-lg border p-4 text-sm">
+              <p className="font-semibold">Request outcome is unconfirmed</p>
+              <p className="mt-1">
+                Keep request {unknownOutcome}. Submitting again is blocked until its outcome is
+                known.
+              </p>
+              <Button className="mt-3" variant="outline" onClick={checkOutcome}>
+                Check request status
+              </Button>
+            </div>
+          )}
+          {activeStory && <StoryGuide id={activeStory} onClose={() => setActiveStory(null)} />}
           {supported ? (
-            children
+            operationalRoute && !view.actor.planIds.length ? (
+              <div className="p-6">
+                <EmptyState
+                  icon="access"
+                  title="Operational plan access is not included"
+                  description="Financial VAN grants do not grant access to policies or claims."
+                />
+              </div>
+            ) : (
+              <>
+                {operationalRoute && (
+                  <p className="mx-6 mt-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+                    Existing portal workflow · illustrative operational records. Financial stories
+                    use the shared simulator snapshot.
+                  </p>
+                )}
+                {children}
+              </>
+            )
           ) : (
             <div className="p-6">
               <EmptyState
@@ -209,7 +238,7 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
       </div>
 
       <Dialog open={controls} onOpenChange={setControls}>
-        <DialogContent className="left-auto right-0 top-0 flex h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none bg-white p-6">
+        <DialogContent className="left-auto right-0 top-0 flex h-dvh w-[820px] max-w-[820px] translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none bg-white p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="size-5 text-share-policy-primary" />
@@ -220,149 +249,180 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
               in this local session.
             </DialogDescription>
           </DialogHeader>
-          <div className="finance-simulator-grid">
-            <Picker
-              label="Wallet group example"
-              value={snapshot.topology}
-              onChange={(v) => void configure(v as Topology, scenario)}
-              disabled={pending}
-              options={[
-                { value: 'eternal', label: 'Eternal · 4 VANs, 4 partners' },
-                { value: 'cred', label: 'Cred · V2 shared by 2 partners' },
-              ]}
-            />
-            <Picker
-              label="Preview as"
-              value={role}
-              onChange={(v) => setRole(v as Role)}
-              disabled={pending}
-              options={Object.entries(ROLE_LABELS)
-                .filter(([key]) =>
-                  key === 'credit-vidya'
-                    ? snapshot.topology === 'cred'
-                    : key === 'eternal-group-finance'
-                      ? snapshot.topology === 'eternal'
-                      : true,
-                )
-                .map(([value, label]) => ({ value, label }))}
-            />
-            <Picker
-              label="Load a scenario (resets workflow changes)"
-              value={scenario}
-              onChange={(v) => void configure(snapshot.topology, v as Scenario)}
-              disabled={pending}
-              options={Object.entries(SCENARIOS).map(([value, label]) => ({ value, label }))}
-            />
-            <div className="rounded-lg border border-border bg-muted/40 p-4 text-xs leading-5">
-              <strong>Scope in this preview</strong>
-              <p className="mt-1 text-muted-foreground">
-                Financial VANs: {view.actor.vanIds.join(', ') || 'None'}. Operational plans:{' '}
-                {view.ownPlans.length}. View-only users cannot submit money actions.
-              </p>
-            </div>
-            <div className="border-t border-border pt-4">
-              <h3 className="mb-2 text-sm font-semibold">Simulate an external event</h3>
-              <p className="mb-3 text-xs text-muted-foreground">
-                These controls represent service callbacks, not user permissions.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending || snapshot.apd !== 'grace'}
-                  onClick={() => system('expire-grace')}
-                >
-                  Expire grace
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending || snapshot.apd !== 'blocked'}
-                  onClick={() => system('expire-recovery')}
-                >
-                  Expire recovery
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    pending ||
-                    !snapshot.cases.some((c) => c.kind === 'refund' && c.status === 'pending')
-                  }
-                  onClick={() => system('payout-success')}
-                >
-                  Payout succeeds
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    pending ||
-                    !snapshot.cases.some((c) => c.kind === 'refund' && c.status === 'pending')
-                  }
-                  onClick={() => system('payout-failure')}
-                >
-                  Payout fails
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => system('refresh')}
-                >
-                  Sources refresh
-                </Button>
-              </div>
-            </div>
-            <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm">
-              <Checkbox
-                checked={failNextAction}
+          <SimulatorStudio
+            onLaunch={(id) => {
+              setActiveStory(id);
+              setControls(false);
+            }}
+          >
+            <div className="finance-simulator-grid">
+              <Picker
+                label="Wallet group example"
+                value={snapshot.topology}
+                onChange={(v) => void configure(v as Topology, scenario)}
                 disabled={pending}
-                onCheckedChange={(v) => setFailNextAction(v === true)}
-                aria-label="Fail the next action"
+                options={[
+                  { value: 'eternal', label: 'Eternal · 4 VANs, 4 partners' },
+                  { value: 'cred', label: 'Cred · V2 shared by 2 partners' },
+                ]}
               />
-              <span>
-                Fail the next submitted action
-                <small className="mt-1 block text-xs text-muted-foreground">
-                  Verify error recovery and preserved form entries.
-                </small>
-              </span>
-            </label>
-            <Picker
-              label="APD policy hypothesis · Finance sign-off pending"
-              value={snapshot.apdBasis}
-              disabled={pending}
-              onChange={(v) => setApdBasis(v as 'booked' | 'available')}
-              options={[
-                { value: 'available', label: 'Available = booked − holds' },
-                { value: 'booked', label: 'Booked balance only' },
-              ]}
-            />
-            <p className="text-xs text-muted-foreground">
-              Failed payouts retain their obligation hold in this proposal. Fixture deadlines and
-              low-balance thresholds are illustrative. No email, payment or cancellation is sent.
-            </p>
-            <div className="rounded-lg bg-muted p-3 text-xs">
-              <p>
-                Snapshot revision {snapshot.revision} · mapping v{snapshot.mappingVersion}
+              <Picker
+                label="Preview as"
+                value={role}
+                onChange={(v) => setRole(v as Role)}
+                disabled={pending}
+                options={snapshot.users
+                  .map((u) => [u.id, u.name])
+                  .filter(([key]) =>
+                    key === 'credit-vidya'
+                      ? snapshot.topology === 'cred'
+                      : key === 'eternal-group-finance'
+                        ? snapshot.topology === 'eternal'
+                        : true,
+                  )
+                  .map(([value, label]) => ({ value, label }))}
+              />
+              <Picker
+                label="Load a scenario (resets workflow changes)"
+                value={scenario}
+                onChange={(v) => void configure(snapshot.topology, v as Scenario)}
+                disabled={pending}
+                options={Object.entries(SCENARIOS).map(([value, label]) => ({ value, label }))}
+              />
+              <div className="rounded-lg border border-border bg-muted/40 p-4 text-xs leading-5">
+                <strong>Scope in this preview</strong>
+                <p className="mt-1 text-muted-foreground">
+                  Financial VANs: {view.actor.vanIds.join(', ') || 'None'}. Operational plans:{' '}
+                  {view.ownPlans.length}. View-only users cannot submit money actions.
+                </p>
+              </div>
+              <div className="border-t border-border pt-4">
+                <h3 className="mb-2 text-sm font-semibold">Simulate an external event</h3>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  These controls represent service callbacks, not user permissions.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending || !['grace', 'blocked', 'recovery'].includes(snapshot.apd)}
+                    onClick={() => system('fund-group')}
+                  >
+                    Confirm recovery funding
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending || snapshot.apd !== 'grace'}
+                    onClick={() => system('expire-grace')}
+                  >
+                    Expire grace
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending || snapshot.apd !== 'blocked'}
+                    onClick={() => system('expire-recovery')}
+                  >
+                    Expire recovery
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      pending ||
+                      !snapshot.cases.some((c) => c.kind === 'refund' && c.status === 'pending')
+                    }
+                    onClick={() => system('payout-success')}
+                  >
+                    Payout succeeds
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      pending ||
+                      !snapshot.cases.some((c) => c.kind === 'refund' && c.status === 'pending')
+                    }
+                    onClick={() => system('payout-failure')}
+                  >
+                    Payout fails
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => system('refresh')}
+                  >
+                    Sources refresh
+                  </Button>
+                </div>
+              </div>
+              <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={failNextAction}
+                  disabled={pending}
+                  onCheckedChange={(v) => setFailNextAction(v === true)}
+                  aria-label="Fail the next action"
+                />
+                <span>
+                  Fail the next submitted action
+                  <small className="mt-1 block text-xs text-muted-foreground">
+                    Verify error recovery and preserved form entries.
+                  </small>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={timeoutNextAction}
+                  disabled={pending}
+                  onCheckedChange={(v) => setTimeoutNextAction(v === true)}
+                  aria-label="Interrupt response after commit"
+                />
+                <span>
+                  Interrupt response after commit
+                  <small className="block mt-1 text-xs text-muted-foreground">
+                    The operation completes, but acknowledgment is withheld. Look up the original
+                    request before retrying.
+                  </small>
+                </span>
+              </label>
+              <Picker
+                label="APD policy hypothesis · Finance sign-off pending"
+                value={snapshot.apdBasis}
+                disabled={pending}
+                onChange={(v) => setApdBasis(v as 'booked' | 'available')}
+                options={[
+                  { value: 'available', label: 'Available = booked − holds' },
+                  { value: 'booked', label: 'Booked balance only' },
+                ]}
+              />
+              <p className="text-xs text-muted-foreground">
+                Failed payouts retain their obligation hold in this proposal. Fixture deadlines and
+                low-balance thresholds are illustrative. No email, payment or cancellation is sent.
               </p>
-              <p className="mt-1 text-muted-foreground">
-                Last event: {snapshot.audit.at(-1)?.title || 'Scenario loaded'}
-              </p>
+              <div className="rounded-lg bg-muted p-3 text-xs">
+                <p>
+                  Snapshot revision {snapshot.revision} · mapping v{snapshot.mappingVersion}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Last event: {snapshot.audit.at(-1)?.title || 'Scenario loaded'}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                disabled={pending}
+                onClick={() => void configure(snapshot.topology, scenario)}
+              >
+                <RotateCcw />
+                Reset this scenario
+              </Button>
+              <Button className="finance-primary" onClick={() => setControls(false)}>
+                Explore the portal
+                <ChevronRight />
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              disabled={pending}
-              onClick={() => void configure(snapshot.topology, scenario)}
-            >
-              <RotateCcw />
-              Reset this scenario
-            </Button>
-            <Button className="finance-primary" onClick={() => setControls(false)}>
-              Explore the portal
-              <ChevronRight />
-            </Button>
-          </div>
+          </SimulatorStudio>
         </DialogContent>
       </Dialog>
 
@@ -403,7 +463,9 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
                       size="sm"
                       onClick={() => {
                         setNotifications(false);
-                        router.push(`${base}/financials${n.caseId ? '#case/' + n.caseId : ''}`);
+                        router.push(
+                          `${base}/${view.cases.find((c) => c.id === n.caseId)?.kind === 'refund' ? 'manual-refunds' : 'financials'}`,
+                        );
                       }}
                     >
                       Review update

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, Hand, Search, X } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -14,11 +14,26 @@ import UnderlineTabs from '@/components/molecules/UnderlineTabs';
 import { PageHeading, PAGE_LAYOUT_CLASS } from '@/components/molecules/PageHeading';
 import type { ColumnDef } from '@/lib/types/dataTable';
 import { cn } from '@/lib/utils';
-import { exportStatements, money, type FinanceCase } from './domain';
-import { buildLedgerRows, type AggregateBy, type LedgerRow } from './ledger';
+import { money, type FinanceCase } from './domain';
+import {
+  buildLedgerRows,
+  ledgerCsv,
+  transactionsCsv,
+  type AggregateBy,
+  type LedgerRow,
+} from './ledger';
 import { useFinancialWorkspace } from './provider';
 import { ApdBanner, DataGate, EmptyState, Picker, SourceLine, StatusPill } from './common';
 import { ActionDialog, type ActionRequest } from './actions';
+import { WorkflowDialog } from './workflow-dialogs';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 const amount = (paise: number) => (
   <span
@@ -33,7 +48,11 @@ const amount = (paise: number) => (
 const isOpen = (item: FinanceCase) =>
   ['pending', 'failed', 'open', 'awaiting-activation'].includes(item.status);
 
-function columns(aggregateBy: AggregateBy, all: boolean): ColumnDef<LedgerRow>[] {
+function columns(
+  aggregateBy: AggregateBy,
+  all: boolean,
+  expanded: boolean,
+): ColumnDef<LedgerRow>[] {
   return [
     {
       id: 'date',
@@ -56,10 +75,37 @@ function columns(aggregateBy: AggregateBy, all: boolean): ColumnDef<LedgerRow>[]
           },
         ]
       : []),
+    ...(expanded
+      ? [{ id: 'opening', header: 'OPENING (₹)', cell: (row: LedgerRow) => amount(row.opening) }]
+      : []),
     { id: 'deposit', header: 'DEPOSITS (₹)', cell: (row) => amount(row.deposits) },
     { id: 'premium', header: 'PREMIUM (₹)', cell: (row) => amount(row.premium) },
     { id: 'accountRefund', header: 'ACCOUNT REFUND (₹)', cell: (row) => amount(row.accountRefund) },
     { id: 'floatRefund', header: 'FLOAT REFUND (₹)', cell: (row) => amount(row.floatRefund) },
+    {
+      id: 'bankCredit',
+      header: 'BANK REFUND CREDIT (₹)',
+      cell: (row) => amount(row.bankRefundCredit),
+    },
+    ...(expanded
+      ? [
+          {
+            id: 'depositAdjustment',
+            header: 'DEPOSIT ADJ. (₹)',
+            cell: (r: LedgerRow) => amount(r.depositAdjustment),
+          },
+          {
+            id: 'premiumAdjustment',
+            header: 'PREMIUM ADJ. (₹)',
+            cell: (r: LedgerRow) => amount(r.premiumAdjustment),
+          },
+          {
+            id: 'depositRefund',
+            header: 'REFUND DEPOSIT (₹)',
+            cell: (r: LedgerRow) => amount(r.depositRefund),
+          },
+        ]
+      : []),
     { id: 'tcs', header: 'TCS (₹)', cell: (row) => amount(row.tcs) },
     { id: 'tds', header: 'TDS (₹)', cell: (row) => amount(row.tds) },
     ...(aggregateBy === 'Day'
@@ -77,9 +123,15 @@ function columns(aggregateBy: AggregateBy, all: boolean): ColumnDef<LedgerRow>[]
       : []),
     {
       id: 'balance',
-      header: 'TOTAL BALANCE (₹)',
+      header: 'CLOSING BALANCE (₹)',
       cell: (row) => <span className="font-medium">{amount(row.closing)}</span>,
     },
+    ...(expanded
+      ? [
+          { id: 'held', header: 'HELD (₹)', cell: (r: LedgerRow) => amount(r.held) },
+          { id: 'available', header: 'AVAILABLE (₹)', cell: (r: LedgerRow) => amount(r.available) },
+        ]
+      : []),
   ];
 }
 
@@ -95,7 +147,17 @@ export function FinancialLedger() {
     failNextAction,
     setFailNextAction,
     pending,
+    execute,
   } = useFinancialWorkspace();
+  const [expanded, setExpanded] = useState(false);
+  const [customVans, setCustomVans] = useState<string[]>([]);
+  const [workflow, setWorkflow] = useState<'entry' | 'bulk' | null>(null);
+  const [detail, setDetail] = useState<LedgerRow | null>(null);
+  const [decision, setDecision] = useState<{
+    id: string;
+    action: 'approve' | 'reject' | 'match' | 'resolve';
+  } | null>(null);
+  const [decisionReason, setDecisionReason] = useState('');
   const [tab, setTab] = useState('ledger_summary');
   const [aggregateBy, setAggregateBy] = useState<AggregateBy>('Day');
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -109,24 +171,34 @@ export function FinancialLedger() {
   const permitted = view.balances;
   const all = selectedVan === 'all' && permitted.length > 1;
   const account = permitted.find((b) => b.van.id === selectedVan) || permitted[0];
-  const shown = all ? permitted : account ? [account] : [];
+  const shown =
+    selectedVan === 'custom'
+      ? permitted.filter((b) => customVans.includes(b.van.id))
+      : all
+        ? permitted
+        : account
+          ? [account]
+          : [];
   const vanIds = shown.map((b) => b.van.id);
   const visibleCases = view.cases.filter((item) => vanIds.includes(item.vanId) && isOpen(item));
   const unmatched = visibleCases.filter((item) => item.kind === 'deposit').length;
   const payouts = visibleCases.filter((item) => item.kind === 'refund').length;
   const rows = buildLedgerRows(view, vanIds, aggregateBy, dateRange.from, dateRange.to, searchUtr);
-  const tableColumns = useMemo(() => columns(aggregateBy, all), [aggregateBy, all]);
+  const tableColumns = columns(aggregateBy, shown.length > 1, expanded);
   const selected = rows.filter((row) => selectedRows.has(row.id));
   const canDispute = view.actor.capabilities.includes('dispute');
 
   useEffect(() => {
     setAction(null);
+    setWorkflow(null);
+    setDetail(null);
+    setDecision(null);
     setSelectedRows(new Set());
     setSearchInput('');
     setSearchUtr('');
   }, [role, scenario, snapshot.topology, selectedVan]);
 
-  const download = () => {
+  const download = (details = false) => {
     try {
       if (failNextAction) {
         setFailNextAction(false);
@@ -134,13 +206,17 @@ export function FinancialLedger() {
           'Ledger export failed. Your account and filters are preserved; retry the download.',
         );
       }
-      const csv = exportStatements(snapshot, role, vanIds);
+      if (!view.actor.capabilities.includes('export') || !rows.length)
+        throw new Error('No permitted rows match this selection.');
+      const csv = details
+        ? transactionsCsv(view, rows, snapshot.cutoff)
+        : ledgerCsv(rows, snapshot.cutoff);
       const href = URL.createObjectURL(
         new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' }),
       );
       const link = document.createElement('a');
       link.href = href;
-      link.download = `${snapshot.groupId}-${all ? 'all-permitted-vans' : vanIds[0]}-statement.csv`;
+      link.download = `${snapshot.groupId}-${all ? 'all-permitted-vans' : vanIds[0]}-${details ? 'transactions' : 'ledger'}.csv`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(href), 1000);
       toast.success(
@@ -170,7 +246,9 @@ export function FinancialLedger() {
             <StatusPill
               status={
                 snapshot.dataState === 'ready' && snapshot.reconciliation === 'matched'
-                  ? snapshot.apd
+                  ? snapshot.apdEnabled
+                    ? snapshot.apd
+                    : 'APD disabled'
                   : 'unverified'
               }
             />
@@ -208,12 +286,15 @@ export function FinancialLedger() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <Picker
             label="Financial account · VAN"
-            value={all ? 'all' : account?.van.id || ''}
+            value={selectedVan === 'custom' ? 'custom' : all ? 'all' : account?.van.id || ''}
             onChange={setSelectedVan}
             className="min-w-72"
             options={[
               ...(permitted.length > 1
-                ? [{ value: 'all', label: `All permitted VANs (${permitted.length})` }]
+                ? [
+                    { value: 'all', label: `All permitted VANs (${permitted.length})` },
+                    { value: 'custom', label: 'Choose VANs…' },
+                  ]
                 : []),
               ...permitted.map((item) => ({
                 value: item.van.id,
@@ -223,6 +304,38 @@ export function FinancialLedger() {
           />
           <SourceLine />
         </div>
+        {selectedVan === 'custom' && (
+          <div className="flex gap-4 rounded-lg border border-border p-4">
+            {permitted.map((b) => (
+              <label key={b.van.id} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={customVans.includes(b.van.id)}
+                  onCheckedChange={(v) =>
+                    setCustomVans((prev) =>
+                      v ? [...prev, b.van.id] : prev.filter((id) => id !== b.van.id),
+                    )
+                  }
+                />
+                {b.van.id} · {b.van.label}
+              </label>
+            ))}
+          </div>
+        )}
+        {shown.length > 1 && (
+          <div className="rounded-lg bg-muted p-4 text-sm">
+            <strong>
+              Selected accounts: {money(shown.reduce((n, b) => n + b.available, 0))} available
+            </strong>
+            <span className="ml-4 text-muted-foreground">
+              Booked {money(shown.reduce((n, b) => n + b.booked, 0))} · Held{' '}
+              {money(shown.reduce((n, b) => n + b.held, 0))} · {shown.length} distinct VANs
+            </span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Selection total only. Issuance follows the whole wallet group, including accounts
+              outside this selection.
+            </p>
+          </div>
+        )}
         {snapshot.dataState === 'empty' ? (
           <EmptyState
             title="No financial activity yet"
@@ -230,8 +343,8 @@ export function FinancialLedger() {
           />
         ) : (
           <>
-            <div className={cn('grid gap-4', all ? 'grid-cols-4' : 'grid-cols-3')}>
-              {all
+            <div className={cn('grid gap-4', shown.length > 1 ? 'grid-cols-4' : 'grid-cols-3')}>
+              {shown.length > 1
                 ? shown.map((b) => (
                     <div key={b.van.id} className="rounded-xl border border-border bg-white p-5">
                       <p className="text-sm text-muted-foreground">
@@ -248,21 +361,22 @@ export function FinancialLedger() {
                       </div>
                     </div>
                   ))
-                : account &&
+                : shown[0] &&
                   [
                     {
-                      label: `${account.van.id} · booked balance`,
-                      value: money(account.booked),
+                      label: `${shown[0].van.id} · booked balance`,
+                      value: money(shown[0].booked),
                       infoText: 'Opening balance plus posted movements for this VAN.',
                     },
                     {
-                      label: 'Held for bank payouts',
-                      value: money(account.held),
-                      infoText: 'Pending and failed payout obligations remain reserved.',
+                      label: 'Held funds',
+                      value: money(shown[0].held),
+                      infoText:
+                        'Pending bank refunds and refunds to float raised during grace remain reserved.',
                     },
                     {
                       label: 'Available balance',
-                      value: money(account.available),
+                      value: money(shown[0].available),
                       infoText: 'Booked balance less holds for this VAN.',
                     },
                   ].map((card) => (
@@ -297,7 +411,7 @@ export function FinancialLedger() {
                     <DateRangePicker value={dateRange} onChange={setDateRange} />
                     <SimpleSelect
                       value={aggregateBy}
-                      options={['Day', 'Month', 'Quarter'].map((value) => ({
+                      options={['Day', 'Week', 'Month', 'Quarter'].map((value) => ({
                         value,
                         label: `Aggregate by: ${value}`,
                       }))}
@@ -353,15 +467,55 @@ export function FinancialLedger() {
                       size="icon"
                       aria-label="Download ledger export"
                       disabled={pending || !view.actor.capabilities.includes('export')}
-                      onClick={download}
+                      onClick={() => download()}
                     >
                       <Download className="size-4" />
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => setExpanded(!expanded)}>
+                      {expanded ? 'Summary columns' : 'Balance breakdown'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!rows.length}
+                      onClick={() => download(true)}
+                    >
+                      Transaction CSV
+                    </Button>
+                    {view.actor.capabilities.includes('post-entry') && (
+                      <Button
+                        className="finance-primary"
+                        disabled={
+                          shown.length !== 1 ||
+                          pending ||
+                          snapshot.dataState !== 'ready' ||
+                          snapshot.reconciliation !== 'matched'
+                        }
+                        onClick={() => setWorkflow('entry')}
+                      >
+                        Edit Details
+                      </Button>
+                    )}
+                    {view.actor.capabilities.includes('bulk-refund') && (
+                      <Button
+                        variant="outline"
+                        disabled={
+                          shown.length !== 1 ||
+                          pending ||
+                          snapshot.dataState !== 'ready' ||
+                          snapshot.reconciliation !== 'matched'
+                        }
+                        onClick={() => setWorkflow('bulk')}
+                      >
+                        Bulk refunds
+                      </Button>
+                    )}
                     {canDispute && (
                       <Button
                         className="finance-primary"
                         disabled={
-                          selected.length !== 1 ||
+                          selected.length === 0 ||
+                          new Set(selected.map((r) => r.vanId)).size !== 1 ||
                           pending ||
                           snapshot.dataState !== 'ready' ||
                           snapshot.reconciliation !== 'matched'
@@ -370,7 +524,7 @@ export function FinancialLedger() {
                           setAction({
                             type: 'dispute',
                             vanId: selected[0].vanId,
-                            reference: selected[0].utrs[0] || selected[0].id,
+                            reference: selected.map((r) => r.id).join(', '),
                           })
                         }
                       >
@@ -381,7 +535,8 @@ export function FinancialLedger() {
                   </div>
                   {selectedRows.size > 1 && (
                     <p className="px-4 pb-2 text-xs text-muted-foreground">
-                      Select one VAN ledger row to raise a dispute.
+                      Select rows within one VAN for a single dispute. Cross-VAN disputes need
+                      separate requests.
                     </p>
                   )}
                   <DataTable<LedgerRow>
@@ -391,6 +546,7 @@ export function FinancialLedger() {
                     selectedRows={selectedRows}
                     onSelectionChange={setSelectedRows}
                     getRowId={(row) => row.id}
+                    onRowClick={setDetail}
                     stickyHeader
                     compact
                     scrollContainerClassName="max-h-[376px] border-b-0"
@@ -404,8 +560,8 @@ export function FinancialLedger() {
                       {all ? `${vanIds.length} separate VANs` : vanIds[0]}
                     </span>
                     <span>
-                      Balances are per VAN. Export contains opening, movements and closing for each
-                      permitted account.
+                      Click a row for its calculation and source entries. Exports follow these
+                      filters.
                     </span>
                   </div>
                 </>
@@ -418,56 +574,192 @@ export function FinancialLedger() {
           </>
         )}
       </DataGate>
+      {visibleCases.some((c) => c.kind === 'deposit' || c.kind === 'dispute') && (
+        <section className="finance-panel">
+          <div className="finance-panel-head">
+            <h2>Financial updates</h2>
+          </div>
+          {visibleCases
+            .filter((c) => c.kind === 'deposit' || c.kind === 'dispute')
+            .map((c) => (
+              <div
+                key={c.id}
+                className="flex justify-between items-center gap-4 border-t border-border p-4 text-sm"
+              >
+                <div>
+                  <p className="font-medium">
+                    {c.title} · {c.vanId}
+                  </p>
+                  <p>
+                    {c.reference} · {c.reason}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.owner} · <StatusPill status={c.status} />
+                  </p>
+                </div>
+                {view.actor.capabilities.includes(c.kind === 'deposit' ? 'match' : 'resolve') && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setDecision({ id: c.id, action: c.kind === 'deposit' ? 'match' : 'resolve' })
+                    }
+                  >
+                    {c.kind === 'deposit' ? 'Verify bank match' : 'Resolve dispute'}
+                  </Button>
+                )}
+              </div>
+            ))}
+        </section>
+      )}
+      {view.actor.internal &&
+        view.cases.some((c) => c.kind === 'correction' && c.status === 'pending') && (
+          <section className="finance-panel">
+            <div className="finance-panel-head">
+              <h2>Ledger entries awaiting review</h2>
+            </div>
+            {view.cases
+              .filter((c) => c.kind === 'correction' && c.status === 'pending')
+              .map((c) => (
+                <div
+                  key={c.id}
+                  className="flex justify-between items-center border-t border-border p-4 text-sm"
+                >
+                  <div>
+                    <p>
+                      {c.vanId} · {c.entryKind || 'Premium correction'} · {money(c.amount)}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {c.reference} · {c.reason}
+                    </p>
+                    <p className="text-xs">
+                      Submitted by {c.maker}; balance unchanged until approval.
+                    </p>
+                  </div>
+                  {view.actor.capabilities.includes('approve') && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setDecision({ id: c.id, action: 'reject' })}
+                      >
+                        Reject
+                      </Button>
+                      <Button onClick={() => setDecision({ id: c.id, action: 'approve' })}>
+                        Review approval
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </section>
+        )}
+      {decision && (
+        <Dialog
+          open
+          onOpenChange={(v) => {
+            if (!v && !pending) setDecision(null);
+          }}
+        >
+          <DialogContent className="bg-white">
+            <DialogHeader>
+              <DialogTitle>
+                {decision.action === 'approve'
+                  ? 'Approve correction'
+                  : decision.action === 'reject'
+                    ? 'Reject correction'
+                    : decision.action === 'match'
+                      ? 'Confirm verified bank match'
+                      : 'Resolve dispute'}
+              </DialogTitle>
+              <DialogDescription>
+                Review the evidence and confirm the outcome. Only a verified bank match or approved
+                correction posts money.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm">{view.cases.find((c) => c.id === decision.id)?.reason}</p>
+            <Input
+              aria-label="Decision reason"
+              placeholder="Decision reason (at least 8 characters)"
+              value={decisionReason}
+              onChange={(e) => setDecisionReason(e.target.value)}
+            />
+            <Button
+              disabled={pending || decisionReason.trim().length < 8}
+              onClick={async () => {
+                if (
+                  await execute({
+                    type: decision.action,
+                    caseId: decision.id,
+                    reason: decisionReason,
+                  })
+                ) {
+                  setDecision(null);
+                  setDecisionReason('');
+                }
+              }}
+            >
+              Confirm {decision.action}
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
+      {detail && (
+        <Dialog
+          open
+          onOpenChange={(v) => {
+            if (!v) setDetail(null);
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-white">
+            <DialogHeader>
+              <DialogTitle>
+                {detail.vanId} · {detail.period}
+              </DialogTitle>
+              <DialogDescription>
+                Opening plus signed movements equals closing. Held funds are excluded from available
+                balance.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-4 gap-3 rounded-lg bg-muted p-4 text-sm">
+              {[
+                ['Opening', detail.opening],
+                ['Closing', detail.closing],
+                ['Held', detail.held],
+                ['Available', detail.available],
+              ].map(([label, value]) => (
+                <p key={label}>
+                  {label}
+                  <strong className="block">{money(Number(value))}</strong>
+                </p>
+              ))}
+            </div>
+            <div className="divide-y divide-border">
+              {view.movements
+                .filter((m) => detail.movementIds.includes(m.id))
+                .map((m) => (
+                  <div key={m.id} className="py-3 text-sm flex justify-between gap-4">
+                    <div>
+                      <p className="font-medium">{m.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.kind} · {m.source}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Posted {m.postedAt} · Effective {m.effectiveAt || m.postedAt}
+                        {m.corrects ? ` · Corrects ${m.corrects}` : ''}
+                      </p>
+                    </div>
+                    <strong>{money(m.amount)}</strong>
+                  </div>
+                ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+      {workflow && shown[0] && (
+        <WorkflowDialog kind={workflow} vanId={shown[0].van.id} onClose={() => setWorkflow(null)} />
+      )}
       {action && <ActionDialog action={action} onClose={() => setAction(null)} />}
     </div>
   );
 }
 
-/** Keeps the existing Manual refunds destination distinct from the Financials ledger. */
-export function ManualRefundsPreview() {
-  const { view, snapshot } = useFinancialWorkspace();
-  const refunds = view.cases.filter((item) => item.kind === 'refund');
-  return (
-    <div className={cn(PAGE_LAYOUT_CLASS, 'pb-10 pt-6')}>
-      <PageHeading
-        title="Manual refunds"
-        subtitle="Review bank payout status for refunds in your permitted financial accounts."
-      />
-      <DataGate>
-        <SourceLine />
-        <section className="finance-panel">
-          <div className="finance-panel-head">
-            <h2>Bank payout obligations</h2>
-            <span className="text-xs text-muted-foreground">
-              {snapshot.groupName} · {refunds.length} records
-            </span>
-          </div>
-          {refunds.length ? (
-            <div className="divide-y divide-border">
-              {refunds.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-4 p-5">
-                  <div>
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {item.vanId} · {item.reference} · {item.owner}
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">{item.reason}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="mb-2 text-sm font-semibold tabular-nums">{money(item.amount)}</p>
-                    <StatusPill status={item.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="No bank payouts to review"
-              description="Pending or failed bank refund obligations in your permitted VANs will appear here."
-            />
-          )}
-        </section>
-      </DataGate>
-    </div>
-  );
-}
+export { ManualRefundsPreview } from './manual-refunds-screen';

@@ -1,3 +1,5 @@
+> Baseline reference: this document describes `baseline-minimal-financials`. For the enhanced branch, use [financial-completion-handoff.md](financial-completion-handoff.md).
+
 # Partner financial workflows — local implementation
 
 This branch integrates the proposed financial workspace into the existing Next.js portal routes and reuses its shadcn components, Euclid typography, purple actions, metric cards, table styles and design tokens. It is a frontend reference implementation with synthetic data, not a connection to banking, payout or insurance services.

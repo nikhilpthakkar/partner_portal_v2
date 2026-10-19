@@ -1,3 +1,4 @@
+import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
 import { EventProperties, SegmentEventNameTypes } from '@/lib/constants/segments.constants';
 import { getSegmentUserContext, waitForSegmentUserContext } from '@/lib/segment/userContext';
 import type {
@@ -49,6 +50,7 @@ export function sendSegmentEvent(
   eventNameType: SegmentEventNameTypes,
   eventData: SegmentViewPayload | SegmentActionPayload | SegmentExceptionPayload,
 ) {
+  if (FINANCIAL_SIMULATOR_ENABLED) return;
   void waitForSegmentUserContext().then(() => {
     const props = mergeProps(eventData);
 

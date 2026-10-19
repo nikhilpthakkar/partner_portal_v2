@@ -15,6 +15,7 @@ import { DatadogPageRenderTracker } from '@/components/datadog/DatadogPageRender
 import { cn } from '@/lib/utils';
 import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
 import { FinancialWorkspaceProvider } from '@/features/financial-workspace/provider';
+import { LegacyBridge } from '@/features/financial-workspace/legacy-bridge';
 import { FinancialSimulatorShell } from '@/features/financial-workspace/shell';
 
 type LayoutWrapperProps = {
@@ -25,7 +26,9 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   if (FINANCIAL_SIMULATOR_ENABLED)
     return (
       <FinancialWorkspaceProvider>
-        <FinancialSimulatorShell>{children}</FinancialSimulatorShell>
+        <LegacyBridge>
+          <FinancialSimulatorShell>{children}</FinancialSimulatorShell>
+        </LegacyBridge>
       </FinancialWorkspaceProvider>
     );
   return <LiveLayoutWrapper>{children}</LiveLayoutWrapper>;

@@ -1,3 +1,4 @@
+import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
 import {
   POLICIES_BY_TENURE_DISTRIBUTION_CHART_ID,
   POLICIES_BY_TENURE_DISTRIBUTION_CONFIG_CHART_ID,
@@ -129,6 +130,9 @@ export const parseEnabledChartIdsFromConfig = (configChartIds: string[]): Set<st
   );
 
 export const CONFIGURE_METRICS_NAV_ITEMS = [
+  ...(FINANCIAL_SIMULATOR_ENABLED
+    ? [{ id: 'access-management', label: 'Access management', href: 'access-management' }]
+    : []),
   { id: 'configure-metrics', label: 'Configure metrics', href: 'configure-metrics' },
 ] as const;
 
