@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DateRangePicker from '@/components/molecules/DateRangePicker';
@@ -24,7 +25,14 @@ export function ManualRefundsPreview() {
   const [tab, setTab] = useState('all'),
     [query, setQuery] = useState(''),
     [plan, setPlan] = useState('all');
-  const [detail, setDetail] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [detail, setDetail] = useState<string | null>(searchParams.get('refund'));
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkVan, setBulkVan] = useState(view.actor.vanIds[0] || '');
+  const [bulkReady, setBulkReady] = useState(false);
+  const bulkAccounts = view.balances.filter((b) =>
+    b.van.plans.some((p) => view.actor.planIds.includes(p.id)),
+  );
   const [action, setAction] = useState<'retry' | 'settle' | 'beneficiary' | null>(null);
   // Operational plan grants, independently of access to the whole VAN ledger.
   const allowed = new Set(view.actor.planIds);
@@ -57,6 +65,26 @@ export function ManualRefundsPreview() {
       <PageHeading
         title="Manual refunds"
         subtitle="Monitor refund requests, inspect bank responses and update completed transfers."
+        actions={
+          view.actor.capabilities.includes('bulk-refund') && (
+            <Button
+              className="finance-primary"
+              disabled={
+                pending ||
+                !bulkAccounts.length ||
+                snapshot.dataState !== 'ready' ||
+                snapshot.reconciliation !== 'matched'
+              }
+              onClick={() => {
+                setBulkVan(bulkAccounts[0]?.van.id || '');
+                setBulkReady(false);
+                setBulkOpen(true);
+              }}
+            >
+              Bulk refunds
+            </Button>
+          )
+        }
       />
       <DataGate financial={false}>
         {!view.actor.planIds.length ? (
@@ -180,6 +208,45 @@ export function ManualRefundsPreview() {
           </>
         )}
       </DataGate>
+      {bulkOpen && !bulkReady && (
+        <Dialog open onOpenChange={setBulkOpen}>
+          <DialogContent className="bg-white">
+            <DialogHeader>
+              <DialogTitle>Choose an account for bulk refunds</DialogTitle>
+              <DialogDescription>
+                Process one VAN at a time. Only accounts with both financial and operational plan
+                access are available.
+              </DialogDescription>
+            </DialogHeader>
+            <Picker
+              label="Financial account · VAN"
+              value={bulkVan}
+              onChange={setBulkVan}
+              options={bulkAccounts.map((b) => ({
+                value: b.van.id,
+                label: `${b.van.id} · ${b.van.label}`,
+              }))}
+            />
+            <Button
+              className="finance-primary"
+              disabled={!bulkAccounts.some((b) => b.van.id === bulkVan)}
+              onClick={() => setBulkReady(true)}
+            >
+              Continue to refunds
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
+      {bulkOpen && bulkReady && (
+        <WorkflowDialog
+          kind="bulk"
+          vanId={bulkVan}
+          onClose={() => {
+            setBulkOpen(false);
+            setBulkReady(false);
+          }}
+        />
+      )}
       {selected && (
         <Dialog
           open

@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, LockKeyhole, RefreshCw, Inbox } from 'lucide-react';
+import { AlertCircle, Clock3, LockKeyhole, RefreshCw, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Skeleton from '@/components/ui/skeleton';
@@ -147,16 +147,13 @@ export function ApdBanner({ compact = false }: { compact?: boolean }) {
   const mode = uncertain ? 'unknown' : !snapshot.apdEnabled ? 'disabled' : snapshot.apd;
   const content = {
     disabled: [
-      'APD is disabled for this wallet group',
+      'Automatic funding restrictions are not enabled',
       'Balances still require reconciliation. Automatic grace, blocking and recovery rules are not applied to this group.',
     ],
-    healthy: [
-      'Issuance is active',
-      'Your wallet group is funded. All mapped plans follow this APD state.',
-    ],
+    healthy: ['Issuance is active', 'Funds are available for new policies.'],
     low: ['Balance is running low', 'Review funding now to reduce the risk of entering grace.'],
     grace: [
-      'Action needed · wallet group in grace',
+      'Funding needed before the deadline',
       'Issuance continues until 23 Oct, 6:00 PM IST. Arrange funding with your finance owner before the deadline.',
     ],
     blocked: [
@@ -168,21 +165,17 @@ export function ApdBanner({ compact = false }: { compact?: boolean }) {
       'Finance and Business must review affected policies and claims exceptions. No automatic cancellation has occurred.',
     ],
     unknown: [
-      'Current APD status needs verification',
+      'Current policy issuance status needs verification',
       'Source data is incomplete or delayed. The last verified snapshot cannot confirm the current issuance state.',
     ],
   }[mode];
-  const Icon =
-    mode === 'healthy' ? CheckCircle2 : mode === 'grace' || mode === 'low' ? Clock3 : AlertCircle;
+  if (mode === 'healthy') return null;
+  const Icon = mode === 'grace' || mode === 'low' ? Clock3 : AlertCircle;
   return (
     <section
       className={cn(
         'finance-banner',
-        mode === 'healthy'
-          ? 'finance-success'
-          : ['blocked', 'recovery'].includes(mode)
-            ? 'finance-danger'
-            : 'finance-warning',
+        ['blocked', 'recovery'].includes(mode) ? 'finance-danger' : 'finance-warning',
       )}
       role="status"
     >
@@ -213,7 +206,7 @@ export function SourceLine() {
             : 'bg-balance-coverage-recharge-primary',
         )}
       />
-      {snapshot.dataState === 'stale' ? 'Last verified' : 'Source cutoff'}:{' '}
+      Last fetched on{' '}
       {new Date(snapshot.cutoff).toLocaleString('en-IN', {
         timeZone: 'Asia/Kolkata',
         day: '2-digit',
@@ -221,16 +214,19 @@ export function SourceLine() {
         hour: '2-digit',
         minute: '2-digit',
       })}{' '}
-      IST<span>·</span>
-      <span>
-        {snapshot.dataState === 'empty'
-          ? 'Awaiting initial verified snapshot'
-          : snapshot.dataState === 'stale'
-            ? 'Current source confirmation pending'
-            : snapshot.reconciliation === 'mismatch'
-              ? 'Reconciliation mismatch · investigate before acting'
-              : 'Sources reconciled'}
-      </span>
+      IST
+      {(snapshot.dataState !== 'ready' || snapshot.reconciliation !== 'matched') && (
+        <span>
+          ·{' '}
+          {snapshot.dataState === 'empty'
+            ? 'Awaiting initial verified snapshot'
+            : snapshot.dataState === 'stale'
+              ? 'Current source confirmation pending'
+              : snapshot.reconciliation === 'mismatch'
+                ? 'Reconciliation mismatch · investigate before acting'
+                : 'Verification pending'}
+        </span>
+      )}
     </p>
   );
 }

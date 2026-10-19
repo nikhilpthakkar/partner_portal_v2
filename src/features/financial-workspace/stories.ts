@@ -123,7 +123,7 @@ export const STORIES: Story[] = [
     scenario: 'healthy',
     route: 'financials',
     steps: [
-      'Edit Details → Premium correction; enter 1250, DEMO-CORR-001, select an original source and explain the error.',
+      'Edit Details → Correct an existing entry → Premium correction; enter 1250, DEMO-CORR-001, select an original source and explain the error.',
       'Confirm: balance remains unchanged.',
       'In Simulator Controls switch to ACKO Finance approver without resetting.',
       'Review the pending ledger entry and approve with a reason.',
@@ -144,7 +144,7 @@ export const STORIES: Story[] = [
     route: 'financials',
     steps: [
       'Inspect non-zero TDS and TCS in the ledger.',
-      'Use Edit Details → TDS credit with a new evidence reference.',
+      'Use Edit Details → Add TDS with a new evidence reference.',
       'Review the balance breakdown and transaction CSV.',
     ],
     expected:
@@ -243,11 +243,11 @@ export const STORIES: Story[] = [
     topology: 'eternal',
     role: 'reconciliation',
     scenario: 'bulk-refund',
-    route: 'financials',
+    route: 'manual-refunds',
     steps: [
-      'Select VAN-1 → Bulk refunds.',
+      'Open Bulk refunds, choose VAN-1 and continue.',
       'Review the two fixture policies and choose Bank.',
-      'Confirm and open Manual refunds.',
+      'Submit and inspect the new requests in Manual refunds.',
       'Try a duplicate policy in a new batch; the complete batch is rejected before posting.',
     ],
     expected:
@@ -487,7 +487,7 @@ export const STORIES: Story[] = [
     route: 'financials',
     steps: [
       'Select all permitted VANs and inspect the negative selection total.',
-      'Read the APD-disabled banner.',
+      'Read the automatic funding restrictions banner.',
       'Open Controls: automatic grace/recovery transitions are unavailable.',
     ],
     expected:

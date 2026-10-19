@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "proxy": "node src/lib/services/serverConfig/apiProxy.js"
+    "proxy": "node src/lib/services/serverConfig/apiProxy.js",
+    "build:review": "NEXT_PUBLIC_FINANCIAL_SIMULATOR=true NEXT_PUBLIC_FINANCIAL_REVIEW=true next build --webpack"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css,scss,md}": [

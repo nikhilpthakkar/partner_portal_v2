@@ -39,7 +39,7 @@ export function WorkflowDialog({
   const [bankAccount, setBankAccount] = useState('');
   const [confirmAccount, setConfirmAccount] = useState('');
   const [ifsc, setIfsc] = useState(refund?.beneficiary?.ifsc || '');
-  const [entryKind, setEntryKind] = useState<Movement['kind']>('deposit');
+  const [entryKind, setEntryKind] = useState<Movement['kind']>('tds');
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
   const [reason, setReason] = useState('');
@@ -58,7 +58,7 @@ export function WorkflowDialog({
     kind === 'beneficiary'
       ? 'Edit bank details'
       : kind === 'entry'
-        ? 'Edit Details'
+        ? 'Edit ledger details'
         : kind === 'bulk'
           ? 'Bulk cancellation refunds'
           : kind === 'retry'
@@ -103,11 +103,13 @@ export function WorkflowDialog({
       );
     if (kind === 'settle')
       return { type: 'settle-refund', caseId: refund!.id, reference, effectiveAt, reason };
+    if (!plan) throw new Error('Select a product mapped to this financial account.');
     let paise = parseMoney(amount);
     if (entryKind === 'deposit-refund') paise = -Math.abs(paise);
     return {
       type: 'post-entry',
       vanId,
+      planId: plan || undefined,
       amount: paise,
       reference,
       reason,
@@ -133,11 +135,13 @@ export function WorkflowDialog({
             {vanId} ·{' '}
             {kind === 'settle'
               ? 'Record a completed bank transfer only. This releases the existing hold and posts one debit.'
-              : kind === 'retry'
-                ? 'Retry the existing failed obligation. Its hold remains until bank confirmation.'
-                : kind === 'bulk'
-                  ? 'Import approved cancellation refunds by policy. Each row becomes a traceable obligation.'
-                  : 'Record money against the financial account. Corrections require a different Finance approver.'}
+              : kind === 'beneficiary'
+                ? 'Verify the account holder, bank account number and IFSC against the beneficiary’s bank details. Saving updates this failed refund only; it does not retry the transfer or release held funds.'
+                : kind === 'retry'
+                  ? 'Retry the existing failed obligation. Its hold remains until bank confirmation.'
+                  : kind === 'bulk'
+                    ? 'Import approved cancellation refunds by policy. Each row becomes a traceable obligation.'
+                    : 'Record money against the financial account. Corrections require a different Finance approver.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -165,6 +169,11 @@ export function WorkflowDialog({
               {'entryKind' in prepared && (
                 <p>
                   {prepared.entryKind} · {money(prepared.amount)} · {prepared.effectiveAt}
+                  <span className="block">
+                    Product:{' '}
+                    {view.ownPlans.find((p) => p.id === prepared.planId)?.name ||
+                      'Account-level entry'}
+                  </span>
                 </p>
               )}
               {'rows' in prepared && (
@@ -266,21 +275,100 @@ export function WorkflowDialog({
               )}
               {kind === 'entry' && (
                 <>
+                  <fieldset>
+                    <legend className="mb-3 text-sm font-medium">Select fields to edit</legend>
+                    <div className="flex flex-wrap gap-5">
+                      {(
+                        [
+                          ['tds', 'Add TDS'],
+                          ['tcs', 'Add TCS'],
+                          ['deposit-refund', 'Refund deposit'],
+                          ['deposit', 'Add deposit'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <label key={value} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="ledger-entry-type"
+                            value={value}
+                            checked={entryKind === value}
+                            onChange={() => {
+                              setEntryKind(value);
+                              setOriginal('');
+                            }}
+                            className="size-4 accent-[#8B5CF6]"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <details
+                    open={entryKind.includes('adjustment') || undefined}
+                    className="rounded-lg border border-border p-3"
+                  >
+                    <summary className="cursor-pointer text-sm font-medium">
+                      Correct an existing entry
+                    </summary>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Use a correction when an already-posted deposit or premium is wrong. A
+                      different Finance approver must review it.
+                    </p>
+                    <div className="mt-3 flex gap-5">
+                      {(
+                        [
+                          ['deposit-adjustment', 'Deposit adjustment'],
+                          ['premium-adjustment', 'Premium correction'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <label key={value} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="ledger-entry-type"
+                            checked={entryKind === value}
+                            onChange={() => {
+                              setEntryKind(value);
+                              setOriginal('');
+                            }}
+                            className="size-4 accent-[#8B5CF6]"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+                  <div className="rounded-lg bg-muted p-3 text-sm">
+                    <p className="font-medium">
+                      Financial account · {vanId} ·{' '}
+                      {snapshot.vans.find((v) => v.id === vanId)?.label}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {snapshot.vans.find((v) => v.id === vanId)?.maskedAccount} · This entry
+                      applies to the VAN account shared by its mapped products. Select a different
+                      VAN on Financials before editing that account.
+                    </p>
+                  </div>
                   <Picker
-                    label="Entry type"
-                    value={entryKind}
-                    onChange={(v) => setEntryKind(v as Movement['kind'])}
-                    options={[
-                      ['deposit', 'Add deposit'],
-                      ['deposit-refund', 'Refund deposit · completed transfer'],
-                      ['deposit-adjustment', 'Deposit adjustment'],
-                      ['premium-adjustment', 'Premium correction'],
-                      ['tds', 'TDS credit'],
-                      ['tcs', 'TCS credit'],
-                    ].map(([value, label]) => ({ value, label }))}
+                    label="Products"
+                    value={plan}
+                    onChange={setPlan}
+                    options={view.ownPlans
+                      .filter((p) =>
+                        snapshot.vans.find((v) => v.id === vanId)?.plans.some((q) => q.id === p.id),
+                      )
+                      .map((p) => ({ value: p.id, label: p.name }))}
                   />
                   <label className="block text-sm">
-                    Amount (₹)
+                    {entryKind === 'tds'
+                      ? 'TDS amount'
+                      : entryKind === 'tcs'
+                        ? 'TCS amount'
+                        : entryKind === 'deposit-refund'
+                          ? 'Refund amount'
+                          : entryKind === 'deposit'
+                            ? 'Deposit amount'
+                            : 'Correction amount'}{' '}
+                    (₹)
                     <Input
                       required
                       value={amount}
@@ -294,7 +382,7 @@ export function WorkflowDialog({
                       value={original}
                       onChange={setOriginal}
                       options={view.movements
-                        .filter((m) => m.vanId === vanId)
+                        .filter((m) => m.vanId === vanId && (!m.planId || m.planId === plan))
                         .map((m) => ({ value: m.source, label: `${m.source} · ${m.description}` }))}
                     />
                   )}
@@ -341,7 +429,7 @@ export function WorkflowDialog({
                 <>
                   <label className="block text-sm">
                     {entryKind === 'tds' || entryKind === 'tcs'
-                      ? 'Certificate / evidence reference'
+                      ? 'UTR number / certificate reference'
                       : 'Bank UTR / evidence reference'}
                     <Input
                       required
@@ -350,7 +438,7 @@ export function WorkflowDialog({
                     />
                   </label>
                   <label className="block text-sm">
-                    Actual transaction / effective date (IST)
+                    Select date · transaction date (IST)
                     <Input
                       type="datetime-local"
                       required
@@ -374,7 +462,9 @@ export function WorkflowDialog({
               <label className="block text-sm">
                 {kind === 'retry'
                   ? 'Confirmation of corrected beneficiary details'
-                  : 'Reason / supporting evidence'}
+                  : kind === 'entry'
+                    ? 'Notes / supporting evidence'
+                    : 'Reason / supporting evidence'}
                 <Textarea
                   required
                   minLength={8}
@@ -411,7 +501,7 @@ export function WorkflowDialog({
               disabled={pending}
               onClick={() => (prepared ? setPrepared(null) : onClose())}
             >
-              {prepared ? 'Back to details' : 'Cancel'}
+              {prepared ? 'Back to details' : 'Back'}
             </Button>
             <Button type="submit" className="finance-primary" disabled={pending}>
               {unknownOutcome
@@ -419,7 +509,7 @@ export function WorkflowDialog({
                 : pending
                   ? 'Submitting…'
                   : prepared
-                    ? 'Confirm'
+                    ? 'Submit'
                     : 'Review details'}
             </Button>
           </DialogFooter>

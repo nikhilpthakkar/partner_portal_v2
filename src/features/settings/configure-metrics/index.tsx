@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { PageHeading } from '@/components/molecules/PageHeading';
+import { PageHeading, PAGE_LAYOUT_CLASS } from '@/components/molecules/PageHeading';
 import {
   CONFIGURE_METRICS_CHART_CATALOG,
   CONFIGURE_METRICS_KPI_CATALOG,
@@ -30,7 +30,10 @@ import {
 import { useOverviewConfigQuery } from '@/lib/query/overview/overviewConfig.queries';
 import { useUpdateOverviewConfigMutation } from '@/lib/query/overview/overviewConfig.mutations';
 import { usePartnerConfigReady } from '@/lib/hooks/usePartnerConfigReady';
-import { buildPartnerOverviewConfigurationRequest, parseTenureDistributionSettingsFromOverviewConfig } from '@/lib/utils/overview/overviewConfig.utils';
+import {
+  buildPartnerOverviewConfigurationRequest,
+  parseTenureDistributionSettingsFromOverviewConfig,
+} from '@/lib/utils/overview/overviewConfig.utils';
 import { cn } from '@/lib/utils';
 import { useSegmentPartnerBase } from '@/lib/hooks/useSegmentPartnerBase';
 import {
@@ -114,7 +117,9 @@ export default function ConfigureMetricsSettings() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [enabledKpiIds, setEnabledKpiIds] = useState<Set<string>>(getAllConfigureMetricsKpiIds);
-  const [enabledChartIds, setEnabledChartIds] = useState<Set<string>>(getAllConfigureMetricsChartIds);
+  const [enabledChartIds, setEnabledChartIds] = useState<Set<string>>(
+    getAllConfigureMetricsChartIds,
+  );
   const [tenureDistributionSettings, setTenureDistributionSettings] =
     useState<TenureDistributionSettings>(DEFAULT_TENURE_DISTRIBUTION_SETTINGS);
   const [saveAttempted, setSaveAttempted] = useState(false);
@@ -141,6 +146,8 @@ export default function ConfigureMetricsSettings() {
     const kpiIds = parseEnabledKpiIdsFromConfig(config.kpis.map((item) => item.id));
     const chartIds = parseEnabledChartIdsFromConfig(config.charts.map((item) => item.id));
 
+    // Hydrate the editable draft when the remote configuration is loaded or saved.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEnabledKpiIds(kpiIds.size > 0 ? kpiIds : getAllConfigureMetricsKpiIds());
     setEnabledChartIds(chartIds.size > 0 ? chartIds : getAllConfigureMetricsChartIds());
     setTenureDistributionSettings(parseTenureDistributionSettingsFromOverviewConfig(config));
@@ -196,10 +203,7 @@ export default function ConfigureMetricsSettings() {
     trackSettingsSave(segmentBase);
 
     const isTenureChartEnabled = enabledChartIds.has(POLICIES_BY_TENURE_DISTRIBUTION_CHART_ID);
-    if (
-      isTenureChartEnabled &&
-      hasTenureDistributionValidationErrors(tenureDistributionSettings)
-    ) {
+    if (isTenureChartEnabled && hasTenureDistributionValidationErrors(tenureDistributionSettings)) {
       trackSettingsValidationException(segmentBase);
       return;
     }
@@ -215,8 +219,7 @@ export default function ConfigureMetricsSettings() {
       {
         onError: (mutationError) => {
           trackSettingsSaveException(segmentBase, {
-            exception_message:
-              mutationError instanceof Error ? mutationError.message : undefined,
+            exception_message: mutationError instanceof Error ? mutationError.message : undefined,
           });
         },
       },
@@ -228,7 +231,7 @@ export default function ConfigureMetricsSettings() {
   const controlsDisabled = isConfigLoading || isSaving;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6 px-6 py-3">
+    <div className={cn(PAGE_LAYOUT_CLASS, 'pt-6 pb-10')}>
       <PageHeading
         title={CONFIGURE_METRICS_PAGE_HEADER.title}
         subtitle={CONFIGURE_METRICS_PAGE_HEADER.subtitle}
@@ -245,13 +248,12 @@ export default function ConfigureMetricsSettings() {
         }
       />
 
-      <div className="flex min-h-0 flex-1 gap-6">
-        <aside className="w-[210px] shrink-0">
-          <nav className="flex flex-col gap-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-6">
+        <div className="border-b border-border">
+          <nav aria-label="Settings" className="flex gap-6">
             {CONFIGURE_METRICS_NAV_ITEMS.map((item) => {
               const href = `${settingsBasePath}/${item.href}`;
-              const isActive =
-                pathname === href || pathname.startsWith(`${href}/`);
+              const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
               return (
                 <Link
@@ -259,10 +261,10 @@ export default function ConfigureMetricsSettings() {
                   href={href}
                   onClick={() => trackSettingsSwitchNav(segmentBase, item.id)}
                   className={cn(
-                    'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'pb-3 text-sm transition-colors',
                     isActive
-                      ? 'bg-muted text-foreground'
-                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                      ? 'font-semibold text-share-policy-primary'
+                      : 'text-foreground hover:text-share-policy-primary',
                   )}
                 >
                   {item.label}
@@ -270,65 +272,65 @@ export default function ConfigureMetricsSettings() {
               );
             })}
           </nav>
-        </aside>
+        </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
             <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-semibold text-foreground">Configure metrics</h2>
-              <p className="text-sm text-muted-foreground">
-                Select the KPIs and charts to display on the partner&apos;s overview page.
-                Configuration is per product type.
-              </p>
-            </div>
-
-            <ConfigureMetricsSection
-              title="Key metrics"
-              description="Toggle which KPI cards are visible on the overview for this product type."
-              items={filteredKpiCatalog}
-              enabledIds={enabledKpiIds}
-              onToggle={handleKpiToggle}
-              columnsClassName="grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
-            />
-
-            <section className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <h3 className="text-base font-semibold text-foreground">Charts</h3>
+                <h2 className="text-xl font-semibold text-foreground">Configure metrics</h2>
                 <p className="text-sm text-muted-foreground">
-                  Enable charts and set their default configuration. Partners can adjust filters
-                  in-session but defaults persist.
+                  Select the KPIs and charts to display on the partner&apos;s overview page.
+                  Configuration is per product type.
                 </p>
               </div>
-              {filteredChartCatalog.length > 0 ? (
-                <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
-                  {filteredChartCatalog.map((item) => {
-                    if (item.id === POLICIES_BY_TENURE_DISTRIBUTION_CHART_ID) {
+
+              <ConfigureMetricsSection
+                title="Key metrics"
+                description="Toggle which KPI cards are visible on the overview for this product type."
+                items={filteredKpiCatalog}
+                enabledIds={enabledKpiIds}
+                onToggle={handleKpiToggle}
+                columnsClassName="grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+              />
+
+              <section className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-base font-semibold text-foreground">Charts</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Enable charts and set their default configuration. Partners can adjust filters
+                    in-session but defaults persist.
+                  </p>
+                </div>
+                {filteredChartCatalog.length > 0 ? (
+                  <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
+                    {filteredChartCatalog.map((item) => {
+                      if (item.id === POLICIES_BY_TENURE_DISTRIBUTION_CHART_ID) {
+                        return (
+                          <TenureDistributionChartCard
+                            key={item.id}
+                            checked={enabledChartIds.has(item.id)}
+                            onCheckedChange={(checked) => handleChartToggle(item.id, checked)}
+                            settings={tenureDistributionSettings}
+                            onSettingsChange={setTenureDistributionSettings}
+                            disabled={controlsDisabled}
+                            validateOnSave={saveAttempted}
+                          />
+                        );
+                      }
+
                       return (
-                        <TenureDistributionChartCard
+                        <ConfigureMetricsToggleCard
                           key={item.id}
+                          label={item.label}
                           checked={enabledChartIds.has(item.id)}
                           onCheckedChange={(checked) => handleChartToggle(item.id, checked)}
-                          settings={tenureDistributionSettings}
-                          onSettingsChange={setTenureDistributionSettings}
-                          disabled={controlsDisabled}
-                          validateOnSave={saveAttempted}
                         />
                       );
-                    }
-
-                    return (
-                      <ConfigureMetricsToggleCard
-                        key={item.id}
-                        label={item.label}
-                        checked={enabledChartIds.has(item.id)}
-                        onCheckedChange={(checked) => handleChartToggle(item.id, checked)}
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
-            </section>
+                    })}
+                  </div>
+                ) : null}
+              </section>
             </div>
           </div>
 

@@ -147,7 +147,7 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
             Workflow simulator
           </Button>
           <p className="text-center text-[10px] text-muted-foreground">
-            LOCAL PREVIEW · SYNTHETIC DATA
+            REVIEW BUILD · SYNTHETIC DATA
           </p>
         </div>
       </aside>

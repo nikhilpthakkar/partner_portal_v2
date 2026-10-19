@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
+import {
+  FINANCIAL_SIMULATOR_ENABLED,
+  FINANCIAL_REVIEW_BUILD,
+} from '@/features/financial-workspace/config';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/lib/constants/auth.constants';
 import { appendClearUserIdCookieHeaders, USER_ID_COOKIE_NAME } from '@/lib/utils/user-id-cookie';
 
@@ -18,12 +21,22 @@ function clearUserIdCookie(response: NextResponse, request: NextRequest): NextRe
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (FINANCIAL_REVIEW_BUILD) {
+    // A review deployment is a separate synthetic app, never a live partner session.
+    // Keep it confined to the demo namespace and disable the server-side image proxy.
+    if (pathname.startsWith('/api/'))
+      return new NextResponse('Unavailable in synthetic review', { status: 404 });
+    if (pathname.startsWith('/demo/dashboard/')) return NextResponse.next();
+    return NextResponse.redirect(new URL('/demo/dashboard/financials', request.url));
+  }
   if (
     FINANCIAL_SIMULATOR_ENABLED &&
     ['localhost', '127.0.0.1', '[::1]'].includes(request.nextUrl.hostname)
   ) {
     return NextResponse.next();
   }
+
+  if (pathname.startsWith('/api/')) return NextResponse.next();
 
   if (pathname === '/' || pathname.startsWith('/external/')) {
     return clearUserIdCookie(NextResponse.next(), request);
@@ -45,5 +58,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|external|_next/static|_next/image|favicon.ico|images).*)'],
+  matcher: [
+    '/((?!api|external|_next/static|_next/image|favicon.ico|images).*)',
+    '/api/:path*',
+    '/external/:path*',
+  ],
 };

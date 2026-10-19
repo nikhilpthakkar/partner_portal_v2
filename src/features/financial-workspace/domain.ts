@@ -218,6 +218,7 @@ export type Command =
   | {
       type: 'post-entry';
       vanId: string;
+      planId?: string;
       amount: number;
       reference: string;
       reason: string;
@@ -728,7 +729,12 @@ export function selectView(s: Snapshot, role: Role): WorkspaceView {
                 source: 'Restricted attribution',
                 policyId: undefined,
                 corrects: undefined,
-                description: 'Co-participant movement',
+                description:
+                  m.kind === 'premium'
+                    ? 'Premium charged for another partner’s plans'
+                    : m.amount >= 0
+                      ? 'Credit for another partner’s plans'
+                      : 'Debit for another partner’s plans',
               }
             : m,
         )
@@ -745,7 +751,8 @@ export function selectView(s: Snapshot, role: Role): WorkspaceView {
                 policyId: undefined,
                 planId: undefined,
                 utr: undefined,
-                reason: 'A co-participant payout affects this shared VAN.',
+                reason:
+                  'A refund for another partner’s policy affects this shared account. Its funds remain held until payment is confirmed; policy details are outside your access.',
                 events: [],
               }
             : c;
@@ -1022,6 +1029,7 @@ export function executeCommand(
           id: `MOV-${s.revision}`,
           vanId,
           kind: c.entryKind || 'premium-adjustment',
+          planId: c.planId,
           effectiveAt: c.effectiveAt,
           amount: c.amount,
           description: 'Approved correction',
@@ -1372,6 +1380,23 @@ function financialCommand(
       )
         throw new Error('Unsupported ledger entry type.');
       if (
+        command.planId &&
+        (!actor.planIds.includes(command.planId) ||
+          !s.vans.find((v) => v.id === vanId)?.plans.some((p) => p.id === command.planId))
+      )
+        throw new Error('Select a permitted product mapped to this VAN.');
+      const originalMovement = s.movements.find(
+        (m) => m.vanId === vanId && m.source === command.originalReference,
+      );
+      if (
+        command.entryKind.includes('adjustment') &&
+        command.planId &&
+        originalMovement?.planId &&
+        originalMovement.planId !== command.planId
+      )
+        throw new Error('The selected product does not match the original entry.');
+
+      if (
         !Number.isSafeInteger(command.amount) ||
         !command.amount ||
         Math.abs(command.amount) > 100000000000
@@ -1390,6 +1415,7 @@ function financialCommand(
         s.cases.push({
           id: `CORR-${s.revision}`,
           vanId,
+          planId: originalMovement?.planId || command.planId,
           kind: 'correction',
           title: 'Ledger correction awaiting independent approval',
           status: 'pending',
@@ -1407,6 +1433,7 @@ function financialCommand(
         s.movements.push({
           id: `ENTRY-${s.revision}`,
           vanId,
+          planId: command.planId,
           kind: command.entryKind,
           amount: command.amount,
           description: command.reason,

@@ -1,6 +1,6 @@
 # Partner Portal financial completion — review and integration handoff
 
-This branch enhances the existing portal with a deterministic frontend reference implementation. It does not connect to FinAcko, Cashfree, banking, IAM, notification delivery or tax certificate services. All new finance stories use synthetic data and a fixed cutoff of 17 October 2026, 10:42 IST. The production flag remains off.
+This branch enhances the existing portal with a deterministic frontend reference implementation. It does not connect to FinAcko, Cashfree, banking, IAM, notification delivery or tax certificate services. All new finance stories use synthetic data and a fixed cutoff of 17 October 2026, 10:42 IST. Live integration remains off; the deployable review mode is explicitly opted in and uses the same synthetic adapter.
 
 ## Review versions
 
@@ -35,7 +35,7 @@ cp .env.financial-simulator.example .env.local
 pnpm exec next dev --webpack --hostname 127.0.0.1 --port 3010
 ```
 
-Open `/demo/dashboard/financials`. Desktop is the review target. Simulator mode requires development and `NEXT_PUBLIC_FINANCIAL_SIMULATOR=true`. It does not bypass production authentication. Local environment files and dependency caches stay ignored.
+Open `/demo/dashboard/financials`. Desktop is the review target. Local simulator mode requires `NEXT_PUBLIC_FINANCIAL_SIMULATOR=true`. A separately opted-in synthetic review build is also available; normal production builds retain authentication. Local environment files and dependency caches stay ignored.
 
 Use **Simulator → Stories** to launch a scenario. Launch resets the synthetic session. Switching personas in **Controls** preserves the session for maker/approver and access handoffs. Reloading resets fixtures. Invited users become selectable in Controls; this is a local preview, not a sent invitation.
 
@@ -113,4 +113,28 @@ Existing operational screen samples are separate illustrative records, not a rec
 
 Run `pnpm test:financials`, `pnpm exec tsc --noEmit --incremental false`, ESLint on changed source files, and `pnpm exec next build --webpack`. Tests verify balanced event classification, holds/settlements, duplicate guards, approval separation, partial-period statements, access revocation and scenario fixture validity. Browser review covers actual dialog/navigation behavior separately. Keep unknown backend contracts explicit in planning and QA.
 
-Verified in this handoff: 30 domain/ledger/access tests passed; TypeScript, changed-file ESLint, and the production build passed. Browser walkthroughs verified original Overview and Settings rendering, access review/save, failed-refund manual settlement, interrupted-response lookup, and Eternal all-four-account selection. The simulator contains 28 stories.
+Verified after the annotated review: 33 domain/ledger/access/configuration tests passed; TypeScript, changed-file ESLint, and the production review build passed. Browser walkthroughs verified all-four-account dashboard grouping, breakdown tabs, product-attributed deposit posting, verified bank matching, direct failed-refund actions and deep links, bulk-refund submission, Settings tabs and shared-VAN restricted attribution. The compiled production-mode server returned 200 for the demo, redirected a non-demo partner route to the review entry, and returned 404 for the server API route. The simulator contains 28 stories.
+
+## Annotated workflow review — 19 October 2026
+
+Branch: `financials-workflow-update`, based on `codex/financial-completion`.
+
+- The dashboard owns the VAN selector, source timestamp, selected account cards and aggregate footer. A negative account remains visibly negative even when the group is funded.
+- Exceptions appear above the dashboard, with scoped bank-match, refund-bank-details, refund-history and dispute-resolution actions. No healthy APD banner is presented to partners.
+- The ledger defaults to Summary columns, with a Balance breakdown tab. Date and aggregation controls sit alongside the existing ledger section tabs. One download icon exports the filtered ledger; transaction-level export remains available in the ledger service for integration, with no duplicate toolbar CTA.
+- Edit ledger details retains the four original entry choices and mapped Products selection. Product attribution is validated against VAN mapping and operational grants, without splitting or duplicating the account balance. Existing-entry corrections require a separate approver.
+- Bulk refunds now starts on Manual refunds (F11); the account chooser precedes the policy batch. Failed refund alerts deep-link to the specific refund for history, retry and UTR recording.
+- Settings uses top tabs and full-width content for both Access management and Configure metrics. Confirmation buttons use the existing brand colour.
+
+## Deploy this synthetic review branch
+
+Use an isolated review deployment. All data is synthetic and session-local; refreshing resets the scenario. No bank transfers, customer messages or live partner changes are sent.
+
+1. Checkout `financials-workflow-update`.
+2. Install with `pnpm install --frozen-lockfile` using Node 22+ and pnpm 11. The existing ACKO private package registry must be reachable and authorized on the build runner; no registry credentials are committed here.
+3. Build with `pnpm build:review` (sets both `NEXT_PUBLIC_FINANCIAL_SIMULATOR=true` and `NEXT_PUBLIC_FINANCIAL_REVIEW=true` at build time).
+4. Start with `pnpm start`. Open `/demo/dashboard/financials`, then Workflow simulator → Stories.
+
+On a hosting service, set the build command to `pnpm build:review` and start command to `pnpm start`. Alternatively supply both flags at **build time** with the normal build command. A prebuilt live bundle cannot be switched into review mode by setting runtime-only flags.
+
+Review mode confines page requests to `/demo/dashboard/`, redirects other page paths to the synthetic Financials screen, disables the server API proxy, uses the local adapter for legacy data, and skips live analytics/auth providers. A normal build without the review flag keeps the live authentication path. Do not enable this mode on a live partner deployment.

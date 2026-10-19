@@ -308,3 +308,32 @@ test('APD-disabled groups retain negative financial balances without automatic b
   assert.ok(apdAmount(s) < 0);
   assert.throws(() => applySystemEvent(s, 'expire-grace'), /negative wallet group in grace/);
 });
+
+test('ledger product attribution stays within the selected VAN and operational grant', () => {
+  const s = createSnapshot('eternal', 'healthy');
+  const planId = s.vans[0].plans[0].id;
+  const command = { ...entry('tds', 100000), planId };
+  const next = run(s, command);
+  assert.equal(next.movements.at(-1).planId, planId);
+  assert.equal(balance(next, 'VAN-1').booked, balance(s, 'VAN-1').booked + 100000);
+  assert.throws(() => run(s, { ...command, planId: s.vans[1].plans[0].id }), /permitted product/);
+  const restricted = structuredClone(s);
+  restricted.users.find((u) => u.id === 'reconciliation').planIds = [];
+  assert.throws(() => run(restricted, command), /permitted product/);
+});
+
+test('approved corrections retain original product attribution and reject another product', () => {
+  const s = createSnapshot('eternal', 'healthy');
+  const original = s.movements.find((m) => m.vanId === 'VAN-1' && m.kind === 'premium');
+  const command = {
+    ...entry('premium-adjustment', 12000, 'DEMO-PRODUCT-CORRECTION'),
+    planId: original.planId,
+    originalReference: original.source,
+  };
+  const pending = run(s, command);
+  const c = pending.cases.find((c) => c.kind === 'correction');
+  const approved = run(pending, { type: 'approve', caseId: c.id, reason }, 'approver');
+  assert.equal(approved.movements.at(-1).planId, original.planId);
+  const other = s.vans[0].plans.find((p) => p.id !== original.planId).id;
+  assert.throws(() => run(s, { ...command, planId: other }), /does not match/);
+});

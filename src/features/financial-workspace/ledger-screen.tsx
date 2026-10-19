@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Download, Hand, Search, X } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -15,13 +17,7 @@ import { PageHeading, PAGE_LAYOUT_CLASS } from '@/components/molecules/PageHeadi
 import type { ColumnDef } from '@/lib/types/dataTable';
 import { cn } from '@/lib/utils';
 import { money, type FinanceCase } from './domain';
-import {
-  buildLedgerRows,
-  ledgerCsv,
-  transactionsCsv,
-  type AggregateBy,
-  type LedgerRow,
-} from './ledger';
+import { buildLedgerRows, ledgerCsv, type AggregateBy, type LedgerRow } from './ledger';
 import { useFinancialWorkspace } from './provider';
 import { ApdBanner, DataGate, EmptyState, Picker, SourceLine, StatusPill } from './common';
 import { ActionDialog, type ActionRequest } from './actions';
@@ -40,6 +36,7 @@ const amount = (paise: number) => (
     className={cn(
       'whitespace-nowrap tabular-nums text-[13px]',
       paise === 0 && 'text-muted-foreground',
+      paise < 0 && 'text-red-600',
     )}
   >
     {(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -137,6 +134,7 @@ function columns(
 
 /** Desktop simulator for the existing Financials ledger with an explicit VAN scope. */
 export function FinancialLedger() {
+  const { partner } = useParams<{ partner: string }>();
   const {
     snapshot,
     view,
@@ -148,10 +146,15 @@ export function FinancialLedger() {
     setFailNextAction,
     pending,
     execute,
+    error,
+    clearError,
+    unknownOutcome,
+    checkOutcome,
   } = useFinancialWorkspace();
   const [expanded, setExpanded] = useState(false);
   const [customVans, setCustomVans] = useState<string[]>([]);
-  const [workflow, setWorkflow] = useState<'entry' | 'bulk' | null>(null);
+  const [workflow, setWorkflow] = useState<'entry' | null>(null);
+  const [refundAction, setRefundAction] = useState<FinanceCase | null>(null);
   const [detail, setDetail] = useState<LedgerRow | null>(null);
   const [decision, setDecision] = useState<{
     id: string;
@@ -182,7 +185,9 @@ export function FinancialLedger() {
   const vanIds = shown.map((b) => b.van.id);
   const visibleCases = view.cases.filter((item) => vanIds.includes(item.vanId) && isOpen(item));
   const unmatched = visibleCases.filter((item) => item.kind === 'deposit').length;
-  const payouts = visibleCases.filter((item) => item.kind === 'refund').length;
+  const payouts = visibleCases.filter(
+    (item) => item.kind === 'refund' && item.destination !== 'float',
+  ).length;
   const rows = buildLedgerRows(view, vanIds, aggregateBy, dateRange.from, dateRange.to, searchUtr);
   const tableColumns = columns(aggregateBy, shown.length > 1, expanded);
   const selected = rows.filter((row) => selectedRows.has(row.id));
@@ -191,6 +196,7 @@ export function FinancialLedger() {
   useEffect(() => {
     setAction(null);
     setWorkflow(null);
+    setRefundAction(null);
     setDetail(null);
     setDecision(null);
     setSelectedRows(new Set());
@@ -198,7 +204,12 @@ export function FinancialLedger() {
     setSearchUtr('');
   }, [role, scenario, snapshot.topology, selectedVan]);
 
-  const download = (details = false) => {
+  useEffect(() => {
+    setExpanded(false);
+    setCustomVans([]);
+  }, [role, scenario, snapshot.topology]);
+
+  const download = () => {
     try {
       if (failNextAction) {
         setFailNextAction(false);
@@ -208,15 +219,13 @@ export function FinancialLedger() {
       }
       if (!view.actor.capabilities.includes('export') || !rows.length)
         throw new Error('No permitted rows match this selection.');
-      const csv = details
-        ? transactionsCsv(view, rows, snapshot.cutoff)
-        : ledgerCsv(rows, snapshot.cutoff);
+      const csv = ledgerCsv(rows, snapshot.cutoff);
       const href = URL.createObjectURL(
         new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' }),
       );
       const link = document.createElement('a');
       link.href = href;
-      link.download = `${snapshot.groupId}-${all ? 'all-permitted-vans' : vanIds[0]}-${details ? 'transactions' : 'ledger'}.csv`;
+      link.download = `${snapshot.groupId}-${all ? 'all-permitted-vans' : vanIds[0]}-ledger.csv`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(href), 1000);
       toast.success(
@@ -235,107 +244,296 @@ export function FinancialLedger() {
       />
       <DataGate>
         <ApdBanner compact />
-        <section className="finance-panel">
-          <div className="finance-panel-head">
-            <div>
-              <h2>Financials dashboard</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {snapshot.groupName} · financial accounts in your access scope
-              </p>
+        {visibleCases.filter((c) => c.kind !== 'correction').length > 0 && (
+          <section className="finance-panel" aria-label="Financial updates">
+            <div className="finance-panel-head">
+              <h2>Actions you need to take</h2>
             </div>
-            <StatusPill
-              status={
-                snapshot.dataState === 'ready' && snapshot.reconciliation === 'matched'
-                  ? snapshot.apdEnabled
-                    ? snapshot.apd
-                    : 'APD disabled'
-                  : 'unverified'
-              }
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-4 p-5">
-            <MetricCard card={{ label: 'VANs in your scope', value: String(permitted.length) }} />
-            <MetricCard card={{ label: 'Deposits awaiting match', value: String(unmatched) }} />
-            <MetricCard
-              card={{ label: 'Bank payouts pending or failed', value: String(payouts) }}
-            />
-          </div>
-          {visibleCases.length > 0 && (
-            <div className="border-t border-border px-5 py-4">
-              <p className="text-sm font-medium">Financial alerts</p>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                {visibleCases.map((item) => (
+            {visibleCases
+              .filter((c) => c.kind !== 'correction')
+              .map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between gap-5 border-t border-border p-5 text-sm"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      {c.title} · {c.vanId} · {money(c.amount)}
+                    </p>
+                    <p className="text-muted-foreground">{c.reason}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Reference: {c.reference} · Owner: {c.owner}
+                    </p>
+                    {c.kind === 'refund' && (
+                      <p className="text-xs text-muted-foreground">
+                        {c.destination === 'float'
+                          ? 'This refund stays reserved until verified funding clears the group’s funding deadline. It will then become available for new policies.'
+                          : c.status === 'failed'
+                            ? 'Funds remain held until the bank confirms payment. Verify the beneficiary before retrying.'
+                            : 'Funds remain held while payment is being processed. Do not initiate another transfer.'}
+                      </p>
+                    )}
+                    {!view.actor.capabilities.includes(
+                      c.kind === 'deposit'
+                        ? 'match'
+                        : c.kind === 'dispute'
+                          ? 'resolve'
+                          : 'settle-refund',
+                    ) && (
+                      <p className="text-xs">
+                        {c.owner} is responsible for the next update. Your access allows you to
+                        track this request.
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <StatusPill status={c.status} />
+                    {(c.kind === 'deposit' || c.kind === 'dispute') &&
+                      view.actor.capabilities.includes(
+                        c.kind === 'deposit' ? 'match' : 'resolve',
+                      ) && (
+                        <Button
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => {
+                            clearError();
+                            setDecisionReason('');
+                            setDecision({
+                              id: c.id,
+                              action: c.kind === 'deposit' ? 'match' : 'resolve',
+                            });
+                          }}
+                        >
+                          {c.kind === 'deposit' ? 'Verify bank match' : 'Resolve dispute'}
+                        </Button>
+                      )}
+                    {c.kind === 'refund' && c.planId && view.actor.planIds.includes(c.planId) && (
+                      <>
+                        {c.status === 'failed' &&
+                        view.actor.capabilities.includes('settle-refund') ? (
+                          <Button
+                            className="finance-primary"
+                            disabled={
+                              pending ||
+                              snapshot.dataState !== 'ready' ||
+                              snapshot.reconciliation !== 'matched'
+                            }
+                            onClick={() => setRefundAction(c)}
+                          >
+                            Verify bank details
+                          </Button>
+                        ) : null}
+                        <Button variant="outline" asChild>
+                          <Link
+                            href={`/${partner}/dashboard/manual-refunds?refund=${encodeURIComponent(c.id)}`}
+                          >
+                            View refund details
+                          </Link>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </section>
+        )}
+
+        {view.actor.internal &&
+          visibleCases.some((c) => c.kind === 'correction' && c.status === 'pending') && (
+            <section className="finance-panel">
+              <div className="finance-panel-head">
+                <h2>Ledger entries awaiting review</h2>
+              </div>
+              {visibleCases
+                .filter((c) => c.kind === 'correction' && c.status === 'pending')
+                .map((c) => (
                   <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                    key={c.id}
+                    className="flex justify-between items-center border-t border-border p-4 text-sm"
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{item.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {item.vanId} · {item.reason}
-                      </span>
-                    </span>
-                    <StatusPill status={item.status} />
+                    <div>
+                      <p>
+                        {c.vanId} · {c.entryKind || 'Premium correction'} · {money(c.amount)}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {c.reference} · {c.reason}
+                      </p>
+                      <p className="text-xs">
+                        Submitted by {c.maker}; balance unchanged until approval.
+                      </p>
+                    </div>
+                    {view.actor.capabilities.includes('approve') && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setDecision({ id: c.id, action: 'reject' })}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          className="finance-primary"
+                          onClick={() => {
+                            setDecisionReason('');
+                            setDecision({ id: c.id, action: 'approve' });
+                          }}
+                        >
+                          Review approval
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
+            </section>
+          )}
+        <section className="finance-panel" aria-label="Financials dashboard">
+          <div className="finance-panel-head items-start">
+            <div>
+              <h2>Financials dashboard</h2>
+              <p className="mt-1 mb-3 text-xs text-muted-foreground">
+                {snapshot.groupName} · financial accounts in your access scope
+              </p>
+              <SourceLine />
+            </div>
+            <Picker
+              label="Financial account · VAN"
+              value={selectedVan === 'custom' ? 'custom' : all ? 'all' : account?.van.id || ''}
+              onChange={setSelectedVan}
+              className="min-w-72"
+              options={[
+                ...(permitted.length > 1
+                  ? [
+                      { value: 'all', label: `All permitted VANs (${permitted.length})` },
+                      { value: 'custom', label: 'Choose VANs…' },
+                    ]
+                  : []),
+                ...permitted.map((item) => ({
+                  value: item.van.id,
+                  label: `${item.van.id} · ${item.van.label}`,
+                })),
+              ]}
+            />
+          </div>
+          <div className="space-y-4 p-5">
+            {selectedVan === 'custom' && (
+              <div className="flex gap-4 rounded-lg border border-border p-4">
+                {permitted.map((b) => (
+                  <label key={b.van.id} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={customVans.includes(b.van.id)}
+                      onCheckedChange={(v) =>
+                        setCustomVans((prev) =>
+                          v ? [...prev, b.van.id] : prev.filter((id) => id !== b.van.id),
+                        )
+                      }
+                    />
+                    {b.van.id} · {b.van.label}
+                  </label>
+                ))}
               </div>
+            )}
+            <div className="grid grid-cols-3 gap-4">
+              <MetricCard card={{ label: 'Selected VANs', value: String(shown.length) }} />
+              <MetricCard card={{ label: 'Deposits awaiting match', value: String(unmatched) }} />
+              <MetricCard
+                card={{ label: 'Bank payouts pending or failed', value: String(payouts) }}
+              />
+            </div>
+            {snapshot.dataState !== 'empty' && (
+              <>
+                <div className={cn('grid gap-4', shown.length > 1 ? 'grid-cols-4' : 'grid-cols-3')}>
+                  {shown.length > 1
+                    ? shown.map((b) => (
+                        <div
+                          key={b.van.id}
+                          className="rounded-xl border border-border bg-white p-5"
+                        >
+                          <p className="text-sm text-muted-foreground">
+                            {b.van.id} · {b.van.label}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {b.van.maskedAccount}
+                          </p>
+                          <p className="mt-4 text-xs text-muted-foreground">Available</p>
+                          <p
+                            className={cn(
+                              'mt-1 text-2xl font-semibold tabular-nums',
+                              b.available < 0 && 'text-red-600',
+                            )}
+                          >
+                            {money(b.available)}
+                          </p>
+                          <div className="mt-4 flex justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                            <span className={b.booked < 0 ? 'text-red-600' : ''}>
+                              Booked {money(b.booked)}
+                            </span>
+                            <span>Held {money(b.held)}</span>
+                          </div>
+                        </div>
+                      ))
+                    : shown[0] &&
+                      [
+                        {
+                          label: `${shown[0].van.id} · booked balance`,
+                          value: money(shown[0].booked),
+                          infoText: 'Opening balance plus posted movements for this VAN.',
+                        },
+                        {
+                          label: 'Held funds',
+                          value: money(shown[0].held),
+                          infoText:
+                            'Pending bank refunds and refunds to float raised during grace remain reserved.',
+                        },
+                        {
+                          label: 'Available balance',
+                          value: money(shown[0].available),
+                          infoText: 'Booked balance less holds for this VAN.',
+                        },
+                      ].map((card) => (
+                        <MetricCard
+                          key={card.label}
+                          card={card}
+                          className={cn(
+                            'finance-kpi [&_p.text-metric-card-value]:text-2xl',
+                            card.value.startsWith('-') &&
+                              '[&_p.text-metric-card-value]:text-red-600',
+                          )}
+                        />
+                      ))}
+                </div>
+                {all && (
+                  <p className="text-xs text-muted-foreground">
+                    Each card is a separate VAN account. Shared issuance status does not combine
+                    their ledger balances.
+                  </p>
+                )}
+              </>
+            )}
+            {selectedVan === 'custom' && !shown.length && (
+              <p className="text-sm text-muted-foreground">
+                Choose at least one VAN to see its balance and statement.
+              </p>
+            )}
+          </div>
+          {shown.length > 0 && snapshot.dataState !== 'empty' && (
+            <div className="rounded-lg bg-muted p-4 text-sm">
+              <strong
+                className={shown.reduce((n, b) => n + b.available, 0) < 0 ? 'text-red-600' : ''}
+              >
+                Selected accounts: {money(shown.reduce((n, b) => n + b.available, 0))} available
+              </strong>
+              <span className="ml-4 text-muted-foreground">
+                Booked {money(shown.reduce((n, b) => n + b.booked, 0))} · Held{' '}
+                {money(shown.reduce((n, b) => n + b.held, 0))} · {shown.length} distinct VAN
+                {shown.length === 1 ? '' : 's'}
+              </span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Selection total only. Issuance follows the whole wallet group, including accounts
+                outside this selection.
+              </p>
             </div>
           )}
         </section>
 
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <Picker
-            label="Financial account · VAN"
-            value={selectedVan === 'custom' ? 'custom' : all ? 'all' : account?.van.id || ''}
-            onChange={setSelectedVan}
-            className="min-w-72"
-            options={[
-              ...(permitted.length > 1
-                ? [
-                    { value: 'all', label: `All permitted VANs (${permitted.length})` },
-                    { value: 'custom', label: 'Choose VANs…' },
-                  ]
-                : []),
-              ...permitted.map((item) => ({
-                value: item.van.id,
-                label: `${item.van.id} · ${item.van.label}`,
-              })),
-            ]}
-          />
-          <SourceLine />
-        </div>
-        {selectedVan === 'custom' && (
-          <div className="flex gap-4 rounded-lg border border-border p-4">
-            {permitted.map((b) => (
-              <label key={b.van.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={customVans.includes(b.van.id)}
-                  onCheckedChange={(v) =>
-                    setCustomVans((prev) =>
-                      v ? [...prev, b.van.id] : prev.filter((id) => id !== b.van.id),
-                    )
-                  }
-                />
-                {b.van.id} · {b.van.label}
-              </label>
-            ))}
-          </div>
-        )}
-        {shown.length > 1 && (
-          <div className="rounded-lg bg-muted p-4 text-sm">
-            <strong>
-              Selected accounts: {money(shown.reduce((n, b) => n + b.available, 0))} available
-            </strong>
-            <span className="ml-4 text-muted-foreground">
-              Booked {money(shown.reduce((n, b) => n + b.booked, 0))} · Held{' '}
-              {money(shown.reduce((n, b) => n + b.held, 0))} · {shown.length} distinct VANs
-            </span>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Selection total only. Issuance follows the whole wallet group, including accounts
-              outside this selection.
-            </p>
-          </div>
-        )}
         {snapshot.dataState === 'empty' ? (
           <EmptyState
             title="No financial activity yet"
@@ -343,58 +541,8 @@ export function FinancialLedger() {
           />
         ) : (
           <>
-            <div className={cn('grid gap-4', shown.length > 1 ? 'grid-cols-4' : 'grid-cols-3')}>
-              {shown.length > 1
-                ? shown.map((b) => (
-                    <div key={b.van.id} className="rounded-xl border border-border bg-white p-5">
-                      <p className="text-sm text-muted-foreground">
-                        {b.van.id} · {b.van.label}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{b.van.maskedAccount}</p>
-                      <p className="mt-4 text-xs text-muted-foreground">Available</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums">
-                        {money(b.available)}
-                      </p>
-                      <div className="mt-4 flex justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-                        <span>Booked {money(b.booked)}</span>
-                        <span>Held {money(b.held)}</span>
-                      </div>
-                    </div>
-                  ))
-                : shown[0] &&
-                  [
-                    {
-                      label: `${shown[0].van.id} · booked balance`,
-                      value: money(shown[0].booked),
-                      infoText: 'Opening balance plus posted movements for this VAN.',
-                    },
-                    {
-                      label: 'Held funds',
-                      value: money(shown[0].held),
-                      infoText:
-                        'Pending bank refunds and refunds to float raised during grace remain reserved.',
-                    },
-                    {
-                      label: 'Available balance',
-                      value: money(shown[0].available),
-                      infoText: 'Booked balance less holds for this VAN.',
-                    },
-                  ].map((card) => (
-                    <MetricCard
-                      key={card.label}
-                      card={card}
-                      className="finance-kpi [&_p.text-metric-card-value]:text-2xl"
-                    />
-                  ))}
-            </div>
-            {all && (
-              <p className="text-xs text-muted-foreground">
-                Each card is a separate VAN account. Shared issuance status does not combine their
-                ledger balances.
-              </p>
-            )}
             <div className="overflow-hidden rounded-lg border border-border bg-white">
-              <div className="border-b border-border pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-2 pt-2">
                 <UnderlineTabs
                   value={tab}
                   onValueChange={setTab}
@@ -404,10 +552,9 @@ export function FinancialLedger() {
                     { label: 'Settlement (coming soon)', value: 'settlement' },
                   ]}
                 />
-              </div>
-              {tab === 'ledger_summary' ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+                {tab === 'ledger_summary' && (
+                  <div className="flex items-center gap-3 pb-2">
+                    {' '}
                     <DateRangePicker value={dateRange} onChange={setDateRange} />
                     <SimpleSelect
                       value={aggregateBy}
@@ -421,6 +568,20 @@ export function FinancialLedger() {
                       }}
                       placeholder="Aggregate by"
                       className="w-auto"
+                    />
+                  </div>
+                )}
+              </div>
+              {tab === 'ledger_summary' ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+                    <UnderlineTabs
+                      value={expanded ? 'breakdown' : 'summary'}
+                      onValueChange={(v) => setExpanded(v === 'breakdown')}
+                      tabs={[
+                        { value: 'summary', label: 'Summary columns' },
+                        { value: 'breakdown', label: 'Balance breakdown' },
+                      ]}
                     />
                     {selectedRows.size > 0 && (
                       <div className="rounded-md bg-[#F5F3FF] px-3 py-1.5 text-sm">
@@ -471,17 +632,6 @@ export function FinancialLedger() {
                     >
                       <Download className="size-4" />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setExpanded(!expanded)}>
-                      {expanded ? 'Summary columns' : 'Balance breakdown'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!rows.length}
-                      onClick={() => download(true)}
-                    >
-                      Transaction CSV
-                    </Button>
                     {view.actor.capabilities.includes('post-entry') && (
                       <Button
                         className="finance-primary"
@@ -496,23 +646,14 @@ export function FinancialLedger() {
                         Edit Details
                       </Button>
                     )}
-                    {view.actor.capabilities.includes('bulk-refund') && (
-                      <Button
-                        variant="outline"
-                        disabled={
-                          shown.length !== 1 ||
-                          pending ||
-                          snapshot.dataState !== 'ready' ||
-                          snapshot.reconciliation !== 'matched'
-                        }
-                        onClick={() => setWorkflow('bulk')}
-                      >
-                        Bulk refunds
-                      </Button>
-                    )}
                     {canDispute && (
                       <Button
-                        className="finance-primary"
+                        variant={
+                          view.actor.capabilities.includes('post-entry') ? 'outline' : 'default'
+                        }
+                        className={
+                          view.actor.capabilities.includes('post-entry') ? '' : 'finance-primary'
+                        }
                         disabled={
                           selected.length === 0 ||
                           new Set(selected.map((r) => r.vanId)).size !== 1 ||
@@ -574,84 +715,6 @@ export function FinancialLedger() {
           </>
         )}
       </DataGate>
-      {visibleCases.some((c) => c.kind === 'deposit' || c.kind === 'dispute') && (
-        <section className="finance-panel">
-          <div className="finance-panel-head">
-            <h2>Financial updates</h2>
-          </div>
-          {visibleCases
-            .filter((c) => c.kind === 'deposit' || c.kind === 'dispute')
-            .map((c) => (
-              <div
-                key={c.id}
-                className="flex justify-between items-center gap-4 border-t border-border p-4 text-sm"
-              >
-                <div>
-                  <p className="font-medium">
-                    {c.title} · {c.vanId}
-                  </p>
-                  <p>
-                    {c.reference} · {c.reason}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {c.owner} · <StatusPill status={c.status} />
-                  </p>
-                </div>
-                {view.actor.capabilities.includes(c.kind === 'deposit' ? 'match' : 'resolve') && (
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      setDecision({ id: c.id, action: c.kind === 'deposit' ? 'match' : 'resolve' })
-                    }
-                  >
-                    {c.kind === 'deposit' ? 'Verify bank match' : 'Resolve dispute'}
-                  </Button>
-                )}
-              </div>
-            ))}
-        </section>
-      )}
-      {view.actor.internal &&
-        view.cases.some((c) => c.kind === 'correction' && c.status === 'pending') && (
-          <section className="finance-panel">
-            <div className="finance-panel-head">
-              <h2>Ledger entries awaiting review</h2>
-            </div>
-            {view.cases
-              .filter((c) => c.kind === 'correction' && c.status === 'pending')
-              .map((c) => (
-                <div
-                  key={c.id}
-                  className="flex justify-between items-center border-t border-border p-4 text-sm"
-                >
-                  <div>
-                    <p>
-                      {c.vanId} · {c.entryKind || 'Premium correction'} · {money(c.amount)}
-                    </p>
-                    <p className="text-muted-foreground">
-                      {c.reference} · {c.reason}
-                    </p>
-                    <p className="text-xs">
-                      Submitted by {c.maker}; balance unchanged until approval.
-                    </p>
-                  </div>
-                  {view.actor.capabilities.includes('approve') && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setDecision({ id: c.id, action: 'reject' })}
-                      >
-                        Reject
-                      </Button>
-                      <Button onClick={() => setDecision({ id: c.id, action: 'approve' })}>
-                        Review approval
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-          </section>
-        )}
       {decision && (
         <Dialog
           open
@@ -671,19 +734,61 @@ export function FinancialLedger() {
                       : 'Resolve dispute'}
               </DialogTitle>
               <DialogDescription>
-                Review the evidence and confirm the outcome. Only a verified bank match or approved
-                correction posts money.
+                {decision.action === 'match'
+                  ? 'Check the bank statement against this transfer’s UTR, amount and receiving account. Confirm only when the bank credit is verified. This will credit the selected VAN once and close the unmatched-deposit request.'
+                  : decision.action === 'resolve'
+                    ? 'Record the investigation outcome and explain the resolution. Closing a dispute does not change the ledger; use a separately approved correction if needed.'
+                    : 'Check the original entry and supporting evidence. Approval posts the correction once; rejection leaves the balance unchanged.'}
               </DialogDescription>
             </DialogHeader>
-            <p className="text-sm">{view.cases.find((c) => c.id === decision.id)?.reason}</p>
+            {(() => {
+              const item = view.cases.find((c) => c.id === decision.id);
+              return (
+                item && (
+                  <div className="space-y-2 rounded-lg bg-muted p-4 text-sm">
+                    <p className="font-medium">{item.title}</p>
+                    <p>
+                      Financial account: {item.vanId} ·{' '}
+                      {view.balances.find((b) => b.van.id === item.vanId)?.van.label}
+                    </p>
+                    <p>Amount: {money(item.amount)}</p>
+                    <p>Reference: {item.reference}</p>
+                    <p>{item.reason}</p>
+                  </div>
+                )
+              );
+            })()}
             <Input
               aria-label="Decision reason"
               placeholder="Decision reason (at least 8 characters)"
               value={decisionReason}
               onChange={(e) => setDecisionReason(e.target.value)}
             />
+            {error && (
+              <p role="alert" className="finance-danger rounded-lg border p-3 text-sm">
+                {error}
+              </p>
+            )}
+            {unknownOutcome && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  checkOutcome();
+                  setDecision(null);
+                  setDecisionReason('');
+                }}
+              >
+                Check request status
+              </Button>
+            )}
             <Button
-              disabled={pending || decisionReason.trim().length < 8}
+              className="finance-primary"
+              disabled={
+                pending ||
+                decisionReason.trim().length < 8 ||
+                snapshot.dataState !== 'ready' ||
+                snapshot.reconciliation !== 'matched'
+              }
               onClick={async () => {
                 if (
                   await execute({
@@ -728,7 +833,9 @@ export function FinancialLedger() {
               ].map(([label, value]) => (
                 <p key={label}>
                   {label}
-                  <strong className="block">{money(Number(value))}</strong>
+                  <strong className={cn('block', Number(value) < 0 && 'text-red-600')}>
+                    {money(Number(value))}
+                  </strong>
                 </p>
               ))}
             </div>
@@ -739,6 +846,13 @@ export function FinancialLedger() {
                   <div key={m.id} className="py-3 text-sm flex justify-between gap-4">
                     <div>
                       <p className="font-medium">{m.description}</p>
+                      {m.source === 'Restricted attribution' && (
+                        <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                          This shared account also funds plans outside your access. This entry
+                          affects the full VAN balance; the other partner’s plan and policy details
+                          are restricted.
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {m.kind} · {m.source}
                       </p>
@@ -747,7 +861,9 @@ export function FinancialLedger() {
                         {m.corrects ? ` · Corrects ${m.corrects}` : ''}
                       </p>
                     </div>
-                    <strong>{money(m.amount)}</strong>
+                    <strong className={m.amount < 0 ? 'text-red-600' : ''}>
+                      {money(m.amount)}
+                    </strong>
                   </div>
                 ))}
             </div>
@@ -756,6 +872,14 @@ export function FinancialLedger() {
       )}
       {workflow && shown[0] && (
         <WorkflowDialog kind={workflow} vanId={shown[0].van.id} onClose={() => setWorkflow(null)} />
+      )}
+      {refundAction && (
+        <WorkflowDialog
+          kind="beneficiary"
+          refund={refundAction}
+          vanId={refundAction.vanId}
+          onClose={() => setRefundAction(null)}
+        />
       )}
       {action && <ActionDialog action={action} onClose={() => setAction(null)} />}
     </div>

@@ -509,3 +509,7 @@ Potential improvements for future iterations:
 
 Private repository.
 Internal use only.
+
+### Financial workflow review branch
+
+For the synthetic, deployable review on `financials-workflow-update`, use `pnpm build:review` followed by `pnpm start`, then open `/demo/dashboard/financials`. The build runner still needs access to the existing ACKO private package registry. See [the financial handoff](docs/financial-completion-handoff.md#deploy-this-synthetic-review-branch) for deployment flags, review limitations and the annotated changes.

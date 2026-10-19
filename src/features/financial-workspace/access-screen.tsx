@@ -326,7 +326,7 @@ export function AccessManagement() {
                 >
                   {review ? 'Back' : 'Cancel'}
                 </Button>
-                <Button type="submit" disabled={pending}>
+                <Button type="submit" className="finance-primary" disabled={pending}>
                   {unknownOutcome
                     ? 'Awaiting confirmation'
                     : pending

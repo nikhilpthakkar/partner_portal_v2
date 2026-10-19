@@ -5,8 +5,14 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { useGlobalLoaderStore } from '@/lib/store/globalLoader.store';
 import { getLoginUrl } from '@/lib/utils/environment';
 import { useEffect } from 'react';
+import { FINANCIAL_SIMULATOR_ENABLED } from '@/features/financial-workspace/config';
+import { FinancialSimulatorEntry } from '@/features/financial-workspace/entry';
 
 export default function LogoutPage() {
+  return FINANCIAL_SIMULATOR_ENABLED ? <FinancialSimulatorEntry /> : <LiveLogoutPage />;
+}
+
+function LiveLogoutPage() {
   const { logout } = useAuth();
   const { showLoader, hideLoader } = useGlobalLoaderStore();
 
