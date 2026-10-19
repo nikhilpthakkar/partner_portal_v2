@@ -542,8 +542,9 @@ export function FinancialLedger() {
         ) : (
           <>
             <div className="overflow-hidden rounded-lg border border-border bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-2 pt-2">
+              <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 border-b border-border px-4">
                 <UnderlineTabs
+                  variant="flush"
                   value={tab}
                   onValueChange={setTab}
                   tabs={[
@@ -553,8 +554,7 @@ export function FinancialLedger() {
                   ]}
                 />
                 {tab === 'ledger_summary' && (
-                  <div className="flex items-center gap-3 pb-2">
-                    {' '}
+                  <div className="flex items-center gap-3 py-2">
                     <DateRangePicker value={dateRange} onChange={setDateRange} />
                     <SimpleSelect
                       value={aggregateBy}
@@ -574,8 +574,9 @@ export function FinancialLedger() {
               </div>
               {tab === 'ledger_summary' ? (
                 <>
-                  <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="flex min-h-14 flex-wrap items-center gap-x-3 border-b border-border px-4">
                     <UnderlineTabs
+                      variant="flush"
                       value={expanded ? 'breakdown' : 'summary'}
                       onValueChange={(v) => setExpanded(v === 'breakdown')}
                       tabs={[
@@ -691,7 +692,7 @@ export function FinancialLedger() {
                     stickyHeader
                     compact
                     scrollContainerClassName="max-h-[376px] border-b-0"
-                    frameClassName="rounded-none border-0 border-t border-border bg-transparent"
+                    frameClassName="rounded-none border-0 bg-transparent"
                     emptyTitle="No transactions found"
                     emptyDescription="No transactions match this VAN, date range and UTR search."
                   />
