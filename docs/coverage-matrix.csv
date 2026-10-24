@@ -11,3 +11,6 @@ Reliability,Unknown outcome and failure,F20 F22 S02 S03,Preserved form; status l
 Trust,Missing stale revoked data,S01 S04 S05 F21,No silent zero; unverified status; access boundary,Authoritative source and grant changes
 Original portal,Existing workflow continuity,Original Overview/Policy/Claims/Reports/Settings,Original components retained and previewed with sample records,Live services required for unsupported operational writes
 Registry,VAN onboarding/mapping,Outside portal,Existing model retains historical mapping versions,Ackcelerator/VAM registry and mapping activation remain external
+Portfolio,Multiple wallet groups,F24 F25,All/group selector; labelled cross-group view total; separate status and funding decisions,Canonical WG membership and per-group APD/source state
+Portfolio,Access and naming,F26 F27,Group-wide default with optional VAN narrowing; delegated display-name editing,Authenticated per-group grants and auditable stable-ID rename API
+Portfolio,Isolation and trust,F28 F29,Group-scoped commands and notices; withhold sum on stale group,Backend group boundary and authoritative source reconciliation

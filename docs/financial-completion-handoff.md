@@ -25,6 +25,14 @@ This branch enhances the existing portal with a deterministic frontend reference
 
 The original portal had greater coverage of existing operational workflows than the minimal simulator. Neither the original UI nor the earlier broad prototype proved the new accounting rules were complete. Removed speculative Financials tabs (Plan activity, Cases & approvals, Wallet group, Audit trail, Report transfer) have not been restored. Necessary decisions appear within ledger/refund/settings workflows.
 
+## Multiple wallet groups
+
+Stories F24–F29 add a portfolio view for a user assigned to two wallet groups. A VAN belongs to exactly one group. Each group keeps its own VAN registry, ledger, source state, funding rules and issuance status. The **All** view sums available balances only from accounts the user can view, labels the result as a cross-group *view total*, and shows each group’s status separately. It withholds the combined amount if either group has stale or unreconciled data. The sum never determines issuance or funding eligibility.
+
+Group assignment initially grants all its VANs; an administrator can narrow that grant to named VANs in Settings. Access is checked again for each group and operation. A partner super admin can rename a group or delegate the separate `manage-group` capability. The editable display name has no effect on the stable group ID, historical ledger, or mappings. Partner IDs appear as associations under each wallet group, rather than driving the navigation.
+
+The sample portfolio deliberately uses distinct VAN identities: WG-ETERNAL has VAN-1–4; WG-LENDING has VAN-5–6. Its numbers and second group are synthetic examples for UX and contract review, not an assertion about an actual ACKO partner topology. Before integration, the BFF needs a canonical wallet-group/VAN registry, one authenticated person identity with per-group grants, group-scoped read and command routes, server-side scope checks on exports and notifications, and an auditable group-name update. The proposed shapes in `contracts.ts` carry `walletGroupId` on every financial read and command. Returning an unrestricted cross-group ledger or accepting a VAN ID without its group is outside the contract.
+
 ## Start locally
 
 Use the Node version in `.nvmrc` and the pinned pnpm version. The ACKO package dependency may require the developer's existing authorized registry setup.

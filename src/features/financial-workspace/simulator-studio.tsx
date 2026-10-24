@@ -15,12 +15,15 @@ export function SimulatorStudio({
 }) {
   const [tab, setTab] = useState('stories'),
     [search, setSearch] = useState('');
-  const { configure, pending, setSelectedVan } = useFinancialWorkspace();
+  const { configure, configurePortfolio, pending, setSelectedVan } = useFinancialWorkspace();
   const router = useRouter();
   const { partner } = useParams<{ partner: string }>();
   async function launch(story: Story) {
-    await configure(story.topology, story.scenario, story.role);
-    if (story.id === 'F01') setSelectedVan('all');
+    if (story.portfolio) configurePortfolio(story.scenario, story.portfolio.initialGroup, story.role);
+    else {
+      await configure(story.topology, story.scenario, story.role);
+      if (story.id === 'F01') setSelectedVan('all');
+    }
     onLaunch(story.id);
     router.push(`/${partner}/dashboard/${story.route}`);
   }
@@ -80,11 +83,11 @@ export function SimulatorStudio({
   );
 }
 export function StoryGuide({ id, onClose }: { id: string; onClose: () => void }) {
-  const { snapshot } = useFinancialWorkspace();
+  const { snapshot, groups } = useFinancialWorkspace();
   const [expanded, setExpanded] = useState(true);
   const story = STORIES.find((s) => s.id === id);
   if (!story) return null;
-  const complete = storyComplete(story, snapshot);
+  const complete = storyComplete(story, snapshot, groups);
   return (
     <section className="m-5 mb-0 rounded-xl border border-share-policy-primary/25 bg-icon-select-accent-bg/30 p-4">
       <div className="flex justify-between items-center gap-4">

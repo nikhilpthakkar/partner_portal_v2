@@ -202,12 +202,12 @@ export function FinancialLedger() {
     setSelectedRows(new Set());
     setSearchInput('');
     setSearchUtr('');
-  }, [role, scenario, snapshot.topology, selectedVan]);
+  }, [role, scenario, snapshot.groupId, snapshot.topology, selectedVan]);
 
   useEffect(() => {
     setExpanded(false);
     setCustomVans([]);
-  }, [role, scenario, snapshot.topology]);
+  }, [role, scenario, snapshot.groupId, snapshot.topology]);
 
   const download = () => {
     try {

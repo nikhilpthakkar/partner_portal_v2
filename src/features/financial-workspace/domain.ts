@@ -2,6 +2,7 @@
 export type Topology = 'eternal' | 'cred';
 export type Role =
   | 'super-admin'
+  | 'portfolio-finance'
   | 'account-manager'
   | 'partner-finance'
   | 'eternal-group-finance'
@@ -36,6 +37,7 @@ export type ApdState = 'healthy' | 'low' | 'grace' | 'blocked' | 'recovery';
 export type DataState = 'ready' | 'stale' | 'empty' | 'error' | 'loading' | 'no-access';
 export type Capability =
   | 'manage-access'
+  | 'manage-group'
   | 'post-entry'
   | 'settle-refund'
   | 'bulk-refund'
@@ -242,6 +244,7 @@ export type Command =
       reason: string;
     }
   | { type: 'manage-access'; user: AccessUser; reason: string }
+  | { type: 'rename-group'; name: string; reason: string }
   | { type: 'report-deposit'; vanId: string; amount: number; reference: string; reason: string }
   | { type: 'dispute'; vanId: string; reference: string; reason: string }
   | { type: 'match' | 'retry' | 'approve' | 'reject' | 'resolve'; caseId: string; reason: string }
@@ -257,6 +260,7 @@ export type SystemEvent =
 
 export const ROLE_LABELS: Record<Role, string> = {
   'super-admin': 'Partner super admin',
+  'portfolio-finance': 'Finance · multiple wallet groups',
   'account-manager': 'ACKO account manager · read only',
   'partner-finance': 'Partner finance · actions',
   'eternal-group-finance': 'Eternal group finance · 4 VANs (example grant)',
@@ -636,8 +640,9 @@ export function actorFor(s: Snapshot, role: Role): Actor {
   const internal = role === 'reconciliation' || role === 'approver';
   const superAdmin = role === 'super-admin';
   const groupFinance = role === 'eternal-group-finance' && s.topology === 'eternal';
+  const portfolioFinance = role === 'portfolio-finance';
   const partnerIds =
-    internal || groupFinance || superAdmin
+    internal || groupFinance || superAdmin || portfolioFinance
       ? [...new Set(s.vans.flatMap((v) => v.plans.map((p) => p.partner)))]
       : role === 'credit-vidya'
         ? ['Credit Vidya']
@@ -650,6 +655,7 @@ export function actorFor(s: Snapshot, role: Role): Actor {
             (v) =>
               internal ||
               groupFinance ||
+              portfolioFinance ||
               superAdmin ||
               v.plans.some((p) => partnerIds.includes(p.partner)),
           )
@@ -658,11 +664,12 @@ export function actorFor(s: Snapshot, role: Role): Actor {
   if (!['partner-ops', 'partner-viewer', 'eternal-group-finance', 'account-manager'].includes(role))
     capabilities.push('dispute', 'report-deposit');
   if (groupFinance) capabilities.push('dispute');
+  if (portfolioFinance) capabilities.push('report-deposit');
   if (role === 'reconciliation')
     capabilities.push('match', 'retry', 'correct', 'mapping', 'resolve');
   if (role === 'approver') capabilities.push('approve');
   if (role === 'reconciliation') capabilities.push('post-entry', 'settle-refund', 'bulk-refund');
-  if (superAdmin) capabilities.push('manage-access');
+  if (superAdmin) capabilities.push('manage-access', 'manage-group');
   const planIds = s.vans.flatMap((v) =>
     v.plans.filter((p) => partnerIds.includes(p.partner)).map((p) => p.id),
   );
@@ -846,6 +853,8 @@ export function executeCommand(
     !actor.capabilities.includes(
       command.type === 'update-beneficiary'
         ? 'retry'
+        : command.type === 'rename-group'
+          ? 'manage-group'
         : command.type === 'reject'
           ? 'approve'
           : command.type,
@@ -856,7 +865,8 @@ export function executeCommand(
   if (
     (current.dataState !== 'ready' || current.reconciliation !== 'matched') &&
     command.type !== 'dispute' &&
-    command.type !== 'manage-access'
+    command.type !== 'manage-access' &&
+    command.type !== 'rename-group'
   )
     throw new Error('Current source data is required before this action can be completed.');
   if (command.reason.trim().length < 8) throw new Error('Add a reason with at least 8 characters.');
@@ -899,6 +909,15 @@ export function executeCommand(
     );
   }
   if (command.type === 'manage-access') return changeAccess(s, actor, command, idempotencyKey);
+  if (command.type === 'rename-group') {
+    const name = command.name.trim();
+    if (name.length < 3 || name.length > 60)
+      throw new Error('Use a wallet group name between 3 and 60 characters.');
+    if (name === s.groupName) throw new Error('Enter a different wallet group name.');
+    s.groupName = name;
+    s.appliedKeys.push(idempotencyKey);
+    return finish(s, actor.label, 'Wallet group name updated', `${s.groupId} is now shown as ${name}.`);
+  }
   if (
     command.type === 'post-entry' ||
     command.type === 'settle-refund' ||

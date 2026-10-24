@@ -23,6 +23,7 @@ const PERMISSION_LABELS: Partial<Record<Capability, string>> = {
   export: 'Download statements',
   dispute: 'Raise disputes',
   'manage-access': 'Manage users within granted scope',
+  'manage-group': 'Name this wallet group',
 };
 export function AccessManagement() {
   const { snapshot, view, execute, pending, error, clearError, unknownOutcome, checkOutcome } =
@@ -32,7 +33,11 @@ export function AccessManagement() {
   const [draft, setDraft] = useState<AccessUser | null>(null);
   const [reason, setReason] = useState('');
   const [review, setReview] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [renameReason, setRenameReason] = useState('');
   const canManage = view.actor.capabilities.includes('manage-access');
+  const canRename = view.actor.capabilities.includes('manage-group');
   const users = snapshot.users.filter(
     (u) =>
       !['reconciliation', 'approver', 'account-manager'].includes(u.id) &&
@@ -58,6 +63,17 @@ export function AccessManagement() {
         <strong className="text-share-policy-primary">Access management</strong>
         <Link href={`/${partner}/dashboard/settings/configure-metrics`}>Configure metrics</Link>
       </nav>
+      <section className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 text-sm">
+        <div>
+          <h2 className="font-semibold">{snapshot.groupName}</h2>
+          <p className="mt-1 text-muted-foreground">
+            Wallet group ID {snapshot.groupId} · Partners:{' '}
+            {[...new Set(snapshot.vans.flatMap((v) => v.plans.map((p) => p.partner)))].join(', ')}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">The display name can change without changing the group ID, VAN mappings or ledger.</p>
+        </div>
+        {canRename && <Button variant="outline" onClick={() => { setGroupName(snapshot.groupName); setRenameReason(''); setRenameOpen(true); }}>Edit name</Button>}
+      </section>
       {!canManage ? (
         <EmptyState
           title="User administration is not in your role"
@@ -97,9 +113,9 @@ export function AccessManagement() {
                   name: '',
                   email: '',
                   status: 'active',
-                  vanIds: [],
+                  vanIds: snapshot.vans.filter((v) => view.actor.vanIds.includes(v.id)).map((v) => v.id),
                   planIds: [],
-                  capabilities: [],
+                  capabilities: ['view'],
                 })
               }
             >
@@ -249,6 +265,10 @@ export function AccessManagement() {
                   />
                   <fieldset className="rounded-lg border border-border p-4 space-y-3">
                     <legend className="px-2 text-sm font-semibold">Financial VANs</legend>
+                    <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                      <span>Group access includes every VAN by default. Choose specific VANs for a narrower grant.</span>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setDraft({ ...draft, vanIds: snapshot.vans.filter((v) => view.actor.vanIds.includes(v.id)).map((v) => v.id) })}>Grant entire group</Button>
+                    </div>
                     {snapshot.vans
                       .filter((v) => view.actor.vanIds.includes(v.id))
                       .map((v) => (
@@ -340,6 +360,21 @@ export function AccessManagement() {
           </DialogContent>
         </Dialog>
       )}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Name wallet group</DialogTitle>
+            <DialogDescription>The name appears in the group switcher and financials. The group ID and account mappings stay the same.</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={async (event) => { event.preventDefault(); if (await execute({ type: 'rename-group', name: groupName, reason: renameReason })) setRenameOpen(false); }}>
+            <label className="block text-sm">Display name<Input className="mt-1" value={groupName} onChange={(event) => setGroupName(event.target.value)} minLength={3} maxLength={60} required /></label>
+            <label className="block text-sm">Reason for change<Input className="mt-1" value={renameReason} onChange={(event) => setRenameReason(event.target.value)} minLength={8} required /></label>
+            <p className="text-xs text-muted-foreground">Current ID: {snapshot.groupId}</p>
+            {error && <p role="alert" className="finance-danger rounded-lg p-3 text-sm">{error}</p>}
+            <DialogFooter><Button type="button" variant="outline" onClick={() => setRenameOpen(false)}>Cancel</Button><Button type="submit" className="finance-primary" disabled={pending}>{pending ? 'Saving…' : 'Save name'}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

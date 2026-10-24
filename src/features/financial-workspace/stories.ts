@@ -1,4 +1,5 @@
 import type { Role, Scenario, Topology, Snapshot } from './domain';
+import type { GroupSnapshots } from './portfolio';
 export interface Story {
   id: string;
   title: string;
@@ -10,6 +11,7 @@ export interface Story {
   role: Role;
   scenario: Scenario;
   route: string;
+  portfolio?: { initialGroup?: string };
   steps: string[];
   expected: string;
   check:
@@ -25,7 +27,13 @@ export interface Story {
     | 'access'
     | 'bulk'
     | 'source'
-    | 'manual';
+    | 'manual'
+    | 'multi-group'
+    | 'group-isolation'
+    | 'group-access'
+    | 'group-renamed'
+    | 'group-entry'
+    | 'portfolio-source';
 }
 export const STORIES: Story[] = [
   {
@@ -494,6 +502,84 @@ export const STORIES: Story[] = [
       'The financial ledger remains visible while automatic APD rules are inactive. A negative balance is not shown as a triggered block.',
     check: 'manual',
   },
+  {
+    id: 'F24',
+    title: 'Review two wallet groups together',
+    persona: 'Portfolio finance',
+    jtbd: 'See my combined available balance and which group needs attention before opening its accounts.',
+    cadence: 'Start of day',
+    source: 'Product and engineering review · multi-group access',
+    topology: 'eternal', role: 'portfolio-finance', scenario: 'grace', route: 'financials',
+    portfolio: {},
+    steps: ['Read the labelled total across permitted groups.', 'Compare each group’s status and available balance.', 'Open Lending programs, then switch to Eternal in the header.'],
+    expected: 'One user sees two groups. Their VANs are distinct, and each group has its own status.',
+    check: 'multi-group',
+  },
+  {
+    id: 'F25',
+    title: 'Fund the group that needs it',
+    persona: 'Portfolio finance',
+    jtbd: 'Act on the underfunded group without assuming funds in another group restore it.',
+    cadence: 'Funding incident',
+    source: 'Product and engineering review · APD group boundary',
+    topology: 'eternal', role: 'portfolio-finance', scenario: 'grace', route: 'financials',
+    portfolio: {},
+    steps: ['Observe Eternal active and Lending programs requiring funding.', 'Open Lending programs and inspect its separate VANs.', 'Return to All and confirm the other group’s status is unchanged.'],
+    expected: 'A cross-group sum never determines issuance. Lending programs remains in grace while Eternal stays healthy.',
+    check: 'group-isolation',
+  },
+  {
+    id: 'F26',
+    title: 'Narrow a colleague’s access in one group',
+    persona: 'Partner super admin',
+    jtbd: 'Give a colleague only one VAN in a group without changing their access to another group.',
+    cadence: 'Access review',
+    source: 'Product and engineering review · group default and granular UAM',
+    topology: 'eternal', role: 'super-admin', scenario: 'healthy', route: 'settings/access-management',
+    portfolio: { initialGroup: 'WG-ETERNAL' },
+    steps: ['Edit Partner finance · view only.', 'Grant one VAN instead of the entire group and review changes.', 'Switch to Lending programs and verify its grants remain intact.'],
+    expected: 'Group membership can be narrowed to explicit VANs. Editing one group does not rewrite another group’s grants.',
+    check: 'group-access',
+  },
+  {
+    id: 'F27',
+    title: 'Name a wallet group',
+    persona: 'Partner super admin',
+    jtbd: 'Use a meaningful group name without changing account mappings or historical records.',
+    cadence: 'Setup',
+    source: 'Product and engineering review · partner-managed name',
+    topology: 'eternal', role: 'super-admin', scenario: 'healthy', route: 'settings/access-management',
+    portfolio: { initialGroup: 'WG-ETERNAL' },
+    steps: ['Choose Edit name in Settings.', 'Enter a new display name and a reason, then save.', 'Switch to All; verify the new name and unchanged wallet group ID.'],
+    expected: 'The name changes in Settings and the group switcher; VAN membership and balances do not.',
+    check: 'group-renamed',
+  },
+  {
+    id: 'F28',
+    title: 'Keep an entry inside its wallet group',
+    persona: 'ACKO reconciliation',
+    jtbd: 'Post a verified deposit to the correct account and see no change in another group.',
+    cadence: 'Daily reconciliation',
+    source: 'Product and engineering review · action isolation',
+    topology: 'eternal', role: 'reconciliation', scenario: 'healthy', route: 'financials',
+    portfolio: { initialGroup: 'WG-ETERNAL' },
+    steps: ['Select VAN-1 and add a deposit with a unique UTR.', 'Verify the Eternal balance changes.', 'Switch to Lending programs and check its account balances.'],
+    expected: 'The deposit appears once in Eternal. Lending programs has no matching entry or balance change.',
+    check: 'group-entry',
+  },
+  {
+    id: 'F29',
+    title: 'Handle one group with delayed data',
+    persona: 'Portfolio finance',
+    jtbd: 'Avoid trusting a combined amount when one group’s source has not reconciled.',
+    cadence: 'Source delay',
+    source: 'Product and engineering review · cross-group trust',
+    topology: 'eternal', role: 'portfolio-finance', scenario: 'stale', route: 'financials',
+    portfolio: {},
+    steps: ['Open All wallet groups.', 'Notice the combined amount is withheld.', 'Open each group to see which source needs refreshing.'],
+    expected: 'The healthy group remains visible while no misleading cross-group sum is shown.',
+    check: 'portfolio-source',
+  },
   ...(['empty', 'error', 'loading', 'no-access', 'stale'] as Scenario[]).map(
     (scenario, i): Story => ({
       id: `S0${i + 1}`,
@@ -527,8 +613,20 @@ export const STORIES: Story[] = [
     }),
   ),
 ];
-export function storyComplete(story: Story, s: Snapshot): boolean | null {
+export function storyComplete(story: Story, s: Snapshot, groups?: GroupSnapshots): boolean | null {
   switch (story.check) {
+    case 'multi-group':
+      return !!groups && Object.keys(groups).length > 1 && new Set(Object.values(groups).flatMap((g) => g.memberVanIds)).size === Object.values(groups).flatMap((g) => g.memberVanIds).length;
+    case 'group-isolation':
+      return !!groups && groups['WG-ETERNAL']?.apd === 'healthy' && groups['WG-LENDING']?.apd === 'grace';
+    case 'group-access':
+      return !!groups && groups['WG-ETERNAL']?.audit.some((a) => a.title === 'User access updated') && !groups['WG-LENDING']?.audit.some((a) => a.title === 'User access updated');
+    case 'group-renamed':
+      return !!groups && groups['WG-ETERNAL']?.groupName !== 'Eternal';
+    case 'group-entry':
+      return !!groups && groups['WG-ETERNAL']?.audit.some((a) => a.title === 'Ledger entry posted') && !groups['WG-LENDING']?.audit.some((a) => a.title === 'Ledger entry posted');
+    case 'portfolio-source':
+      return !!groups && groups['WG-LENDING']?.dataState === 'stale';
     case 'settled':
       return s.cases.some((c) => c.kind === 'refund' && c.status === 'paid');
     case 'correction':

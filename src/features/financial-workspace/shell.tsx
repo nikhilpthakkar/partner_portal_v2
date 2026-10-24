@@ -29,20 +29,26 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { SCENARIOS, type Role, type Scenario, type Topology } from './domain';
+import { SCENARIOS, selectView, type Role, type Scenario, type Topology } from './domain';
 import { Picker, EmptyState } from './common';
 import { useFinancialWorkspace } from './provider';
 import './workspace.css';
 import { SimulatorStudio, StoryGuide } from './simulator-studio';
+import { GroupOverview, GroupSettingsOverview } from './group-overview';
 
 export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
   const {
     snapshot,
+    groups,
+    availableGroups,
+    selectedGroupId,
+    setGroup,
     view,
     role,
     setRole,
     scenario,
     configure,
+    configurePortfolio,
     system,
     pending,
     failNextAction,
@@ -59,11 +65,15 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState(false);
   const [support, setSupport] = useState(false);
   const [emailPreview, setEmailPreview] = useState(false);
+  const [previewGroupId, setPreviewGroupId] = useState<string | null>(null);
   const pathname = usePathname();
   const params = useParams<{ partner: string }>();
   const router = useRouter();
   const base = `/${params.partner}/dashboard`;
-  const unread = view.notices.filter((n) => !n.read).length;
+  const notices = (selectedGroupId === 'all' ? availableGroups : [snapshot]).flatMap((group) =>
+    selectView(group, role).notices.map((notice) => ({ ...notice, groupId: group.groupId, groupName: group.groupName, refund: group.cases.some((item) => item.id === notice.caseId && item.kind === 'refund') })),
+  );
+  const unread = notices.filter((n) => !n.read).length;
   const nav = [
     { label: 'Overview', path: 'overview', icon: LayoutDashboard },
     { label: 'Policy management', path: 'policy-management', icon: FileText },
@@ -73,7 +83,7 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
       icon: ClipboardList,
     },
     { label: 'Financials', path: 'financials', icon: WalletCards },
-    ...(view.actor.planIds.length > 0
+    ...(availableGroups.some((group) => group.users.find((user) => user.id === role)?.planIds.length)
       ? [{ label: 'Manual refunds', path: 'manual-refunds', icon: Banknote }]
       : []),
     { label: 'Statements & reports', path: 'reports', icon: FileText },
@@ -118,11 +128,13 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
           </button>
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
-              {view.actor.internal ? 'AK' : snapshot.topology === 'eternal' ? 'ZO' : 'CR'}
+              {selectedGroupId === 'all' ? 'WG' : view.actor.internal ? 'AK' : snapshot.topology === 'eternal' ? 'ZO' : 'CR'}
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
-                {view.actor.internal
+                {selectedGroupId === 'all'
+                  ? `${availableGroups.length} wallet groups`
+                  : view.actor.internal
                   ? 'ACKO Finance'
                   : view.actor.partnerIds.join(', ') || 'Financial scope only'}
               </p>
@@ -155,19 +167,32 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
         <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-6 py-2">
           <div className="flex items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-md bg-icon-select-accent-bg text-sm font-semibold text-share-policy-primary">
-              {snapshot.groupName.slice(0, 1)}
+              {selectedGroupId === 'all' ? 'W' : snapshot.groupName.slice(0, 1)}
             </div>
             <div>
-              <p className="text-sm font-semibold">{snapshot.groupName}</p>
+              <p className="text-sm font-semibold">{selectedGroupId === 'all' ? 'All wallet groups' : snapshot.groupName}</p>
               <p className="text-[11px] text-muted-foreground">
-                Wallet group ·{' '}
-                {view.actor.internal
+                {selectedGroupId === 'all' ? `${availableGroups.length} groups in your access` : 'Wallet group · '}
+                {selectedGroupId === 'all' ? '' : view.actor.internal
                   ? 'Internal finance workspace'
                   : view.actor.partnerIds.join(', ') || 'Financial scope only'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {availableGroups.length > 1 && (
+              <Picker
+                label="Wallet group"
+                value={selectedGroupId}
+                onChange={setGroup}
+                disabled={pending}
+                className="w-52"
+                options={[
+                  { value: 'all', label: 'All wallet groups' },
+                  ...availableGroups.map((group) => ({ value: group.groupId, label: group.groupName })),
+                ]}
+              />
+            )}
             <span className="text-xs text-muted-foreground">{view.actor.label}</span>
             <Button
               variant="ghost"
@@ -218,7 +243,21 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
                     use the shared simulator snapshot.
                   </p>
                 )}
-                {children}
+                {selectedGroupId === 'all' ? (
+                  pathname.includes('/financials') ? (
+                    <GroupOverview />
+                  ) : pathname.includes('/settings') ? (
+                    <GroupSettingsOverview />
+                  ) : (
+                    <div className="p-6">
+                      <EmptyState
+                        title="Choose a wallet group"
+                        description="Detailed statements, actions and operational records belong to one wallet group. Select a group in the header, or review them together in Financials."
+                        action={<Button asChild variant="outline"><Link href={`${base}/financials`}>View all wallet groups</Link></Button>}
+                      />
+                    </div>
+                  )
+                ) : children}
               </>
             )
           ) : (
@@ -266,6 +305,9 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
                   { value: 'cred', label: 'Cred · V2 shared by 2 partners' },
                 ]}
               />
+              <Button type="button" variant="outline" disabled={pending} onClick={() => configurePortfolio('grace')}>
+                Load two wallet groups
+              </Button>
               <Picker
                 label="Preview as"
                 value={role}
@@ -285,7 +327,9 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
               <Picker
                 label="Load a scenario (resets workflow changes)"
                 value={scenario}
-                onChange={(v) => void configure(snapshot.topology, v as Scenario)}
+                onChange={(v) => availableGroups.length > 1
+                  ? configurePortfolio(v as Scenario, selectedGroupId, role)
+                  : void configure(snapshot.topology, v as Scenario)}
                 disabled={pending}
                 options={Object.entries(SCENARIOS).map(([value, label]) => ({ value, label }))}
               />
@@ -412,7 +456,9 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
               <Button
                 variant="outline"
                 disabled={pending}
-                onClick={() => void configure(snapshot.topology, scenario)}
+                onClick={() => availableGroups.length > 1
+                  ? configurePortfolio(scenario, selectedGroupId, role)
+                  : void configure(snapshot.topology, scenario)}
               >
                 <RotateCcw />
                 Reset this scenario
@@ -441,17 +487,17 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
           <div className="max-h-[55vh] space-y-2 overflow-auto">
-            {view.notices.length ? (
-              view.notices.map((n) => (
+            {notices.length ? (
+              notices.map((n) => (
                 <div
                   className={cn(
                     'rounded-lg border border-border p-4',
                     !n.read && 'bg-icon-select-accent-bg/40',
                   )}
-                  key={n.id}
+                  key={`${n.groupId}:${n.id}`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-medium">{n.title}</h3>
+                    <h3 className="text-sm font-medium">{n.groupName} · {n.title}</h3>
                     {!n.read && (
                       <span className="size-2 shrink-0 rounded-full bg-share-policy-primary" />
                     )}
@@ -462,15 +508,16 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
                       variant="outline"
                       size="sm"
                       onClick={() => {
+                        if (selectedGroupId === 'all') setGroup(n.groupId);
                         setNotifications(false);
                         router.push(
-                          `${base}/${view.cases.find((c) => c.id === n.caseId)?.kind === 'refund' ? 'manual-refunds' : 'financials'}`,
+                          `${base}/${n.refund ? 'manual-refunds' : 'financials'}`,
                         );
                       }}
                     >
                       Review update
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setEmailPreview(true)}>
+                    <Button variant="ghost" size="sm" onClick={() => { setPreviewGroupId(n.groupId); setEmailPreview(true); }}>
                       Communication preview
                     </Button>
                   </div>
@@ -495,7 +542,7 @@ export function FinancialSimulatorShell({ children }: { children: ReactNode }) {
             <p className="text-xs text-muted-foreground">
               TO: Configured finance contact · role-scoped recipients
             </p>
-            <h3 className="mt-4 font-semibold">{snapshot.groupName}: financial status update</h3>
+            <h3 className="mt-4 font-semibold">{groups[previewGroupId || snapshot.groupId]?.groupName || snapshot.groupName}: financial status update</h3>
             <p className="mt-3 text-sm">
               There is an update requiring review in your Partner Portal. Open the portal to see the
               current status, evidence and next action within your access scope.

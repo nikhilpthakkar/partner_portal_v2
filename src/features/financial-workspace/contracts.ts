@@ -1,18 +1,24 @@
 /** Proposed BFF contracts. No endpoint or service support is implied by these types. */
 export type MoneyPaise = number;
 export interface AuthenticatedGrant {
-  walletGroupId: string;
-  financial: { vanId: string; actions: ('view' | 'export' | 'dispute' | 'post' | 'approve')[] }[];
-  operational: {
-    partnerId: string;
-    planId: string;
-    module: 'policies' | 'claims' | 'manual-refunds';
-    actions: ('view' | 'act')[];
+  walletGroups: {
+    walletGroupId: string;
+    /** Stable identity and editable display name are separate. */
+    displayName: string;
+    financial: { vanId: string; actions: ('view' | 'export' | 'dispute' | 'post' | 'approve')[] }[];
+    operational: {
+      partnerId: string;
+      planId: string;
+      module: 'policies' | 'claims' | 'manual-refunds';
+      actions: ('view' | 'act')[];
+    }[];
+    canManageGroupName: boolean;
   }[];
   canManageAccess: boolean;
   version: string;
 }
 export interface FinancialReadRequest {
+  walletGroupId: string;
   vanIds: string[];
   from: string;
   to: string;
@@ -20,6 +26,7 @@ export interface FinancialReadRequest {
   cursor?: string;
 }
 export interface FinancialCommandRequest<T> {
+  walletGroupId: string;
   requestId: string;
   idempotencyKey: string;
   expectedRevision: string;
