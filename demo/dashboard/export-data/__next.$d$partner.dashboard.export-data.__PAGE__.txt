@@ -1,0 +1,5 @@
+1:"$Sreact.fragment"
+2:I[19369,[],"OutletBoundary"]
+3:"$Sreact.suspense"
+0:{"buildId":"S6Np4Vimbi-csg_eir1Xq","rsc":["$","$1","c",{"children":[["$","div",null,{"className":"mx-auto flex w-full flex-col gap-6 px-6 py-3","children":["$","div",null,{"className":"flex flex-col gap-3","children":["$","div",null,{"className":"flex flex-wrap items-end justify-between gap-4","children":[["$","div",null,{"className":"flex min-w-0 flex-1 flex-col","children":[["$","h1",null,{"className":"text-2xl font-semibold leading-8 text-pagination-text","children":"Exports"}],["$","span",null,{"className":"text-base text-pagination-text-muted","children":"Download and manage exported data"}]]}],null]}]}]}],null,["$","$L2",null,{"children":["$","$3",null,{"name":"Next.MetadataOutlet","children":"$@4"}]}]]}],"loading":null,"isPartial":false}
+4:null
